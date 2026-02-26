@@ -38,13 +38,13 @@ cd /Users/jimmy/Desktop/home-agent-system
 ## 三、管理员新增用户
 
 1. 管理员登录后进入 **用户管理**。
-2. 填写用户名、初始密码、角色（member/admin）。
+2. 填写用户名、初始密码、角色（user/admin）。
 3. 可选填写“用户专属 OpenClaw Token”（会覆盖全局 token）。
 4. 点击创建。
 
 权限规则：
-- **admin**：可访问 用户管理 / 聊天审计 / 记忆审计 / Agent审计 / 安全中心。
-- **member**：只能看到自己的聊天、附件、以及“自己的 Agent 信息”。
+- **admin**：可访问 用户管理 / 聊天审计 / 记忆审计 / Agent审计 / 会话审计 / 安全中心。
+- **user**：只能看到自己的聊天、附件、以及“自己的 Agent 信息”。（兼容旧数据中的 `member`，会自动迁移为 `user`）
 
 ---
 

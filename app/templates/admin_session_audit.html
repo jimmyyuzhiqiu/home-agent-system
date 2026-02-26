@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <h2>会话审计（最近 300 个会话）</h2>
+  <p class="muted">用于管理员查看会话元数据（用户、角色、会话ID、模型、调用来源、消息量、最近执行耗时等）。</p>
+  <table>
+    <tr>
+      <th>会话ID</th><th>用户</th><th>角色</th><th>Session Key</th><th>Agent</th><th>模型</th><th>来源</th><th>消息数</th><th>最近消息</th><th>最近运行</th><th>耗时(ms)</th><th>双Agent</th>
+    </tr>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.conversation_id }}</td>
+      <td>{{ r.username }}</td>
+      <td>{{ r.role }}</td>
+      <td><span class="code">{{ r.session_key }}</span></td>
+      <td><span class="code">{{ r.agent_id or '-' }}</span></td>
+      <td>{{ r.model or '-' }}</td>
+      <td>{{ r.last_provider or '-' }}</td>
+      <td>{{ r.message_count }}</td>
+      <td>{{ r.last_message_at.strftime('%Y-%m-%d %H:%M:%S') if r.last_message_at else '-' }}</td>
+      <td>{{ r.last_run_at.strftime('%Y-%m-%d %H:%M:%S') if r.last_run_at else '-' }}</td>
+      <td>{{ r.last_duration_ms if r.last_duration_ms is not none else '-' }}</td>
+      <td>{% if r.dual_agent_triggered %}<span class="badge success">是</span>{% else %}<span class="badge">否</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

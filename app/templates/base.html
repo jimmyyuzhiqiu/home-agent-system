@@ -12,11 +12,12 @@
   <div class="nav">
     <div>
       <a href="{{ url_for('chat') }}">聊天</a>
-      {% if current_user.role == 'admin' %}
+      {% if current_user.is_admin %}
       <a href="{{ url_for('admin_users') }}">用户管理</a>
       <a href="{{ url_for('admin_chats') }}">聊天审计</a>
       <a href="{{ url_for('admin_memories') }}">记忆审计</a>
       <a href="{{ url_for('admin_agents') }}">Agent审计</a>
+      <a href="{{ url_for('admin_session_audit') }}">会话审计</a>
       <a href="{{ url_for('security_setup') }}">安全中心</a>
       {% endif %}
     </div>
@@ -26,7 +27,7 @@
         <option value="light">Light</option>
         <option value="dark">Dark</option>
       </select>
-      <span class="muted">{{ current_user.username }} / {{ current_user.role }}</span>
+      <span class="muted">{{ current_user.username }} / {{ current_user.role_normalized }}</span>
       <a href="{{ url_for('logout') }}">退出</a>
     </div>
   </div>

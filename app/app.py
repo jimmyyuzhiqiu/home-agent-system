@@ -4,6 +4,7 @@ import uuid
 import json
 import secrets
 import subprocess
+from functools import wraps
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -61,7 +62,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default="member", nullable=False)
+    role = db.Column(db.String(20), default="user", nullable=False)
     openclaw_token = db.Column(db.String(255), nullable=True)
     note = db.Column(db.String(255), nullable=True)
     memory_namespace = db.Column(db.String(120), nullable=False, unique=True)
@@ -80,6 +81,14 @@ class User(db.Model):
 
     def get_id(self):
         return str(self.id)
+
+    @property
+    def role_normalized(self):
+        return "admin" if (self.role or "").strip().lower() == "admin" else "user"
+
+    @property
+    def is_admin(self):
+        return self.role_normalized == "admin"
 
 
 class UserAgentBinding(db.Model):
@@ -156,6 +165,29 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
+def normalize_role(role: str):
+    r = (role or "").strip().lower()
+    if r == "admin":
+        return "admin"
+    return "user"
+
+
+def is_admin_user(user: User | None):
+    if not user:
+        return False
+    return normalize_role(getattr(user, "role", "")) == "admin"
+
+
+def admin_required(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if not is_admin_user(current_user):
+            flash("仅管理员可访问", "danger")
+            return redirect(url_for("chat"))
+        return view_func(*args, **kwargs)
+    return wrapped
+
+
 def ensure_schema_compat():
     db.create_all()
     conn = db.engine.raw_connection()
@@ -168,6 +200,9 @@ def ensure_schema_compat():
         cur.execute("ALTER TABLE user ADD COLUMN note VARCHAR(255)")
     if "onboarding_completed" not in user_cols:
         cur.execute("ALTER TABLE user ADD COLUMN onboarding_completed BOOLEAN NOT NULL DEFAULT 1")
+
+    # 兼容旧角色命名：member -> user
+    cur.execute("UPDATE user SET role='user' WHERE role IS NULL OR TRIM(role)='' OR role='member'")
 
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='login_attempt'")
     if not cur.fetchone():
@@ -675,7 +710,7 @@ def enforce_security_onboarding():
         return
     if request.endpoint in {"logout", "security_setup", "onboarding", "complete_onboarding", "snooze_onboarding", "static", "uploaded_file", "gateway_health"}:
         return
-    if current_user.role == "admin" and (current_user.force_password_change or is_weak_secret()):
+    if is_admin_user(current_user) and (current_user.force_password_change or is_weak_secret()):
         return redirect(url_for("security_setup"))
     if not current_user.onboarding_completed:
         return redirect(url_for("onboarding"))
@@ -726,7 +761,7 @@ def logout():
 @app.route("/security/setup", methods=["GET", "POST"])
 @login_required
 def security_setup():
-    if current_user.role != "admin":
+    if not is_admin_user(current_user):
         abort(403)
 
     if request.method == "POST":
@@ -913,17 +948,15 @@ def uploaded_file(filename):
 
 @app.route("/admin/users", methods=["GET", "POST"])
 @login_required
+@admin_required
 def admin_users():
-    if current_user.role != "admin":
-        flash("仅管理员可访问", "danger")
-        return redirect(url_for("chat"))
 
     if request.method == "POST":
         action = request.form.get("action")
         if action == "create":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
-            role = request.form.get("role", "member")
+            role = request.form.get("role", "user")
             note = request.form.get("note", "").strip() or None
             token = request.form.get("openclaw_token", "").strip() or None
             if not username or not password:
@@ -936,7 +969,7 @@ def admin_users():
                 user = User(
                     username=username,
                     password_hash=generate_password_hash(password),
-                    role="admin" if role == "admin" else "member",
+                    role=normalize_role(role),
                     openclaw_token=token,
                     note=note,
                     memory_namespace=f"user-{uuid.uuid4().hex[:12]}",
@@ -965,10 +998,8 @@ def admin_users():
 
 @app.route("/admin/chats")
 @login_required
+@admin_required
 def admin_chats():
-    if current_user.role != "admin":
-        flash("仅管理员可访问", "danger")
-        return redirect(url_for("chat"))
 
     records = db.session.query(Message, User, Conversation).join(User, Message.user_id == User.id).join(
         Conversation, Message.conversation_id == Conversation.id
@@ -982,20 +1013,16 @@ def admin_chats():
 
 @app.route("/admin/memories")
 @login_required
+@admin_required
 def admin_memories():
-    if current_user.role != "admin":
-        flash("仅管理员可访问", "danger")
-        return redirect(url_for("chat"))
     entries = db.session.query(MemoryEntry, User).join(User, MemoryEntry.user_id == User.id).order_by(MemoryEntry.created_at.desc()).limit(800).all()
     return render_template("admin_memories.html", entries=entries)
 
 
 @app.route("/admin/agents")
 @login_required
+@admin_required
 def admin_agents():
-    if current_user.role != "admin":
-        flash("仅管理员可访问", "danger")
-        return redirect(url_for("chat"))
     rows = db.session.query(UserAgentBinding, User).join(User, UserAgentBinding.user_id == User.id).order_by(User.id.asc()).all()
     latest_user_runs = {}
     for run in TaskRunAudit.query.order_by(TaskRunAudit.id.desc()).all():
@@ -1003,6 +1030,63 @@ def admin_agents():
             latest_user_runs[run.user_id] = run
     return render_template("admin_agents.html", rows=rows, latest_user_runs=latest_user_runs,
                            parse_plan_steps=parse_plan_steps, summarize_text=summarize_text)
+
+
+@app.route("/admin/session-audit")
+@login_required
+@admin_required
+def admin_session_audit():
+    conversations = db.session.query(Conversation, User).join(User, Conversation.user_id == User.id).order_by(Conversation.id.desc()).limit(300).all()
+    rows = []
+    for conv, user in conversations:
+        msg_count = Message.query.filter_by(conversation_id=conv.id).count()
+        last_msg = Message.query.filter_by(conversation_id=conv.id).order_by(Message.created_at.desc()).first()
+        latest_run = TaskRunAudit.query.filter_by(conversation_id=conv.id).order_by(TaskRunAudit.id.desc()).first()
+        rows.append({
+            "conversation_id": conv.id,
+            "username": user.username,
+            "role": normalize_role(user.role),
+            "session_key": conv.session_key,
+            "agent_id": conv.agent_id,
+            "model": conv.model,
+            "last_provider": conv.last_provider,
+            "created_at": conv.created_at,
+            "last_called_at": conv.last_called_at,
+            "message_count": msg_count,
+            "last_message_at": last_msg.created_at if last_msg else None,
+            "last_run_at": latest_run.created_at if latest_run else None,
+            "last_duration_ms": latest_run.duration_ms if latest_run else None,
+            "dual_agent_triggered": latest_run.dual_agent_triggered if latest_run else False,
+        })
+    return render_template("admin_session_audit.html", rows=rows)
+
+
+@app.route("/api/admin/session-audit")
+@login_required
+@admin_required
+def api_admin_session_audit():
+    limit = min(max(int(request.args.get("limit", "100")), 1), 500)
+    conversations = db.session.query(Conversation, User).join(User, Conversation.user_id == User.id).order_by(Conversation.id.desc()).limit(limit).all()
+    items = []
+    for conv, user in conversations:
+        msg_count = Message.query.filter_by(conversation_id=conv.id).count()
+        latest_run = TaskRunAudit.query.filter_by(conversation_id=conv.id).order_by(TaskRunAudit.id.desc()).first()
+        items.append({
+            "conversation_id": conv.id,
+            "username": user.username,
+            "role": normalize_role(user.role),
+            "session_key": conv.session_key,
+            "agent_id": conv.agent_id,
+            "model": conv.model,
+            "last_provider": conv.last_provider,
+            "created_at": conv.created_at.isoformat() if conv.created_at else None,
+            "last_called_at": conv.last_called_at.isoformat() if conv.last_called_at else None,
+            "message_count": msg_count,
+            "last_run_at": latest_run.created_at.isoformat() if latest_run and latest_run.created_at else None,
+            "last_duration_ms": latest_run.duration_ms if latest_run else None,
+            "dual_agent_triggered": bool(latest_run.dual_agent_triggered) if latest_run else False,
+        })
+    return jsonify({"ok": True, "count": len(items), "items": items})
 
 
 @app.cli.command("init-db")

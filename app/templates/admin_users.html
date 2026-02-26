@@ -12,7 +12,7 @@
         <input name="password" type="password" placeholder="初始密码" required>
         <input name="note" placeholder="备注（可选）">
         <select name="role">
-          <option value="member">member</option>
+          <option value="user">user</option>
           <option value="admin">admin</option>
         </select>
         <input name="openclaw_token" placeholder="用户专属 OpenClaw Token（可选）">
@@ -39,7 +39,7 @@
     <tr>
       <td>{{ u.id }}</td>
       <td>{{ u.username }}</td>
-      <td>{{ u.role }}</td>
+      <td>{{ u.role_normalized }}</td>
       <td>{{ u.note or '-' }}</td>
       <td><span class="code">{{ u.memory_namespace }}</span></td>
       <td>{{ '已完成' if u.onboarding_completed else '待完成' }}</td>
