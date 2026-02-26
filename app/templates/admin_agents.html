@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <h2>Agent 审计（全用户）</h2>
+  <p class="muted">只读：每个用户最近一次 Plan / Doing / Result 摘要。</p>
+  <table>
+    <tr><th>用户</th><th>planner / worker</th><th>model</th><th>最近调用</th><th>Plan</th><th>Doing</th><th>Result</th></tr>
+    {% for b, u in rows %}
+    {% set run = latest_user_runs.get(u.id) %}
+    {% set steps = parse_plan_steps(run.planner_plan if run else '') %}
+    <tr>
+      <td>{{ u.username }}<br><span class="muted">{{ u.role }}</span></td>
+      <td>
+        <div class="code">P: {{ b.planner_agent_id or b.agent_id }}</div>
+        <div class="code">W: {{ b.worker_agent_id or '-' }}</div>
+      </td>
+      <td><span class="code">{{ b.model }}</span></td>
+      <td>{{ b.last_called_at.strftime('%Y-%m-%d %H:%M:%S') if b.last_called_at else '-' }}</td>
+      <td style="max-width:280px;">
+        {% if steps %}
+          <ol>{% for s in steps[:4] %}<li>{{ s }}</li>{% endfor %}</ol>
+        {% else %}-{% endif %}
+      </td>
+      <td style="max-width:240px;">
+        {% if steps %}
+          {% for s in steps[:3] %}<div><span class="badge status-done">done</span> {{ s }}</div>{% endfor %}
+        {% else %}-{% endif %}
+      </td>
+      <td style="max-width:300px;word-break:break-all;">{{ summarize_text(run.final_summary if run else '-') }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card glass page-enter" style="margin-bottom:16px;">
+  <h3>助手状态透明面板</h3>
+  <div class="grid two">
+    <div>
+      <h4>Known（已知信息）</h4>
+      {% if known_memories %}
+      <ul>
+        {% for m in known_memories %}
+        <li><span class="badge">{{ m.kind }}</span> {{ m.content }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted">暂无长期记忆。</p>{% endif %}
+    </div>
+    <div>
+      <h4>Plan（计划任务）</h4>
+      {% if plan_steps %}
+      <ol>
+        {% for s in plan_steps %}<li>{{ s }}</li>{% endfor %}
+      </ol>
+      {% else %}<p class="muted">发送任务后显示拆解计划。</p>{% endif %}
+    </div>
+  </div>
+  <div class="grid two" style="margin-top:12px;">
+    <div>
+      <h4>Doing（执行状态）</h4>
+      {% if doing_steps %}
+      <ul>
+        {% for d in doing_steps %}
+        <li><span class="badge status-{{ d.status }}">{{ d.status }}</span> {{ d.step }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted">暂无执行步骤。</p>{% endif %}
+    </div>
+    <div>
+      <h4>Memory（最近记忆变更）</h4>
+      {% if memory_updates %}
+      <ul>
+        {% for m in memory_updates %}
+        <li>{{ m.content }} <span class="muted">({{ m.source }}, {{ m.created_at.strftime('%m-%d %H:%M') }})</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted">暂无记忆更新。</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grid two page-enter">
+  <div class="card">
+    <h3>双Agent执行可视化</h3>
+    <p class="muted">planner：<span class="code">{{ binding.planner_agent_id or binding.agent_id }}</span>（{{ dual_agent_summary.planner_role }}）</p>
+    <p class="muted">worker：<span class="code">{{ binding.worker_agent_id or '未初始化' }}</span>（{{ dual_agent_summary.worker_role }}）</p>
+    <p class="muted">最后结果：{{ dual_agent_summary.last_result or '尚无' }}</p>
+    <p class="muted">worker 摘要：{{ dual_agent_summary.worker_excerpt or '尚无' }}</p>
+    <p class="muted">耗时：{{ (dual_agent_summary.duration_ms / 1000)|round(2) ~ 's' if dual_agent_summary.duration_ms else '尚无' }}</p>
+    <p class="muted">model：<span class="code">{{ binding.model }}</span></p>
+    <p class="muted">最近提供方：<span class="code">{{ binding.last_provider or '尚未调用' }}</span></p>
+  </div>
+
+  <div class="card">
+    <h3>发消息</h3>
+    <form method="post" enctype="multipart/form-data" id="chatForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <textarea name="message" rows="4" placeholder="输入消息..." id="messageInput"></textarea>
+      <div id="dropZone" class="dropzone">拖拽文件到这里，或点击选择</div>
+      <input type="file" name="attachment" id="attachmentInput" style="display:none;">
+      <div class="muted" id="fileHint"></div>
+      <button type="submit">发送</button>
+    </form>
+  </div>
+</div>
+
+{% if not msgs %}
+<div class="card page-enter" style="margin-top:16px;">
+  <h3>你可以这样开始</h3>
+  <div class="cap-grid">
+    {% for p in capability_prompts %}
+    <button type="button" class="cap-card" data-prompt="{{ p }}">{{ p }}</button>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card page-enter" style="margin-top:16px;">
+  <h3>聊天记录</h3>
+  {% for m in msgs %}
+  <div class="msg {{ m.role }} msg-enter">
+    <b>{{ m.role }}</b> <span class="muted">@ {{ m.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+    <div style="margin-top:6px;white-space:pre-wrap;">{{ m.content }}</div>
+    {% if m.attachment_path %}
+      <div style="margin-top:6px;">附件：<a href="{{ url_for('uploaded_file', filename=m.attachment_path) }}" target="_blank">{{ m.attachment_name }}</a></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const input = document.getElementById('attachmentInput');
+const hint = document.getElementById('fileHint');
+const messageInput = document.getElementById('messageInput');
+function setFile(file){ const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; hint.textContent = `已选择: ${file.name}`; }
+dropZone.addEventListener('click',()=>input.click());
+input.addEventListener('change',()=>{ if(input.files&&input.files[0]) hint.textContent=`已选择: ${input.files[0].name}`; });
+['dragenter','dragover'].forEach(evt=>dropZone.addEventListener(evt,(e)=>{e.preventDefault();e.stopPropagation();dropZone.classList.add('dragover');}));
+['dragleave','drop'].forEach(evt=>dropZone.addEventListener(evt,(e)=>{e.preventDefault();e.stopPropagation();dropZone.classList.remove('dragover');}));
+dropZone.addEventListener('drop',(e)=>{ const files=e.dataTransfer.files; if(files&&files[0]) setFile(files[0]); });
+document.querySelectorAll('.cap-card').forEach((card)=>card.addEventListener('click',()=>{messageInput.value=card.dataset.prompt||'';messageInput.focus();}));
+</script>
+{% endblock %}

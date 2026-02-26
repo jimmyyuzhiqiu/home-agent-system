@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <h2>用户管理</h2>
+  <div class="grid two">
+    <div>
+      <h3>创建用户</h3>
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="create">
+        <input name="username" placeholder="用户名" required>
+        <input name="password" type="password" placeholder="初始密码" required>
+        <input name="note" placeholder="备注（可选）">
+        <select name="role">
+          <option value="member">member</option>
+          <option value="admin">admin</option>
+        </select>
+        <input name="openclaw_token" placeholder="用户专属 OpenClaw Token（可选）">
+        <button type="submit">创建用户</button>
+      </form>
+    </div>
+    <div>
+      <h3>说明</h3>
+      <ul>
+        <li>普通用户仅可查看和操作自己的会话。</li>
+        <li>新建/重置密码后，用户下次登录会被要求改密。</li>
+        <li>新创建用户首次登录会自动进入新手引导页。</li>
+        <li>用户 token 存在时，会覆盖全局网关 token。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>已有用户</h3>
+  <table>
+    <tr><th>ID</th><th>用户名</th><th>角色</th><th>备注</th><th>命名空间</th><th>新手引导</th><th>强制改密</th><th>重置密码</th></tr>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td>{{ u.username }}</td>
+      <td>{{ u.role }}</td>
+      <td>{{ u.note or '-' }}</td>
+      <td><span class="code">{{ u.memory_namespace }}</span></td>
+      <td>{{ '已完成' if u.onboarding_completed else '待完成' }}</td>
+      <td>{{ '是' if u.force_password_change else '否' }}</td>
+      <td>
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="reset_pwd">
+          <input type="hidden" name="user_id" value="{{ u.id }}">
+          <input name="new_password" type="password" placeholder="新密码" required>
+          <button class="warning" type="submit">重置</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

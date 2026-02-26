@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <h2>聊天审计（最近 500 条）</h2>
+  <table>
+    <tr><th>时间</th><th>用户</th><th>会话</th><th>角色</th><th>双Agent</th><th>内容</th><th>执行摘要</th><th>附件</th></tr>
+    {% for m, u, c in records %}
+    {% set run = audit_by_conv.get(c.id) %}
+    <tr>
+      <td>{{ m.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ u.username }}</td>
+      <td><span class="code">{{ c.session_key }}</span></td>
+      <td>{{ m.role }}</td>
+      <td>{% if run and run.dual_agent_triggered %}<span class="badge success">触发</span>{% else %}<span class="badge">否</span>{% endif %}</td>
+      <td style="max-width:300px;word-break:break-all;">{{ m.content }}</td>
+      <td style="max-width:280px;word-break:break-all;">{{ run.final_summary if run else '-' }}</td>
+      <td>
+        {% if m.attachment_path %}
+          <a href="{{ url_for('uploaded_file', filename=m.attachment_path) }}" target="_blank">{{ m.attachment_name }}</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

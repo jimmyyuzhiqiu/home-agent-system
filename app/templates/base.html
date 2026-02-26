@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Home Agent System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+  {% if current_user.is_authenticated %}
+  <div class="nav">
+    <div>
+      <a href="{{ url_for('chat') }}">聊天</a>
+      {% if current_user.role == 'admin' %}
+      <a href="{{ url_for('admin_users') }}">用户管理</a>
+      <a href="{{ url_for('admin_chats') }}">聊天审计</a>
+      <a href="{{ url_for('admin_memories') }}">记忆审计</a>
+      <a href="{{ url_for('admin_agents') }}">Agent审计</a>
+      <a href="{{ url_for('security_setup') }}">安全中心</a>
+      {% endif %}
+    </div>
+    <div class="right">
+      <select id="themeSelect" class="theme-select" title="主题模式">
+        <option value="auto">Auto</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+      <span class="muted">{{ current_user.username }} / {{ current_user.role }}</span>
+      <a href="{{ url_for('logout') }}">退出</a>
+    </div>
+  </div>
+  {% endif %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</div>
+<script>
+(function(){
+  const key='themeMode';
+  const select=document.getElementById('themeSelect');
+  const resolveAuto=()=>{ const h=new Date().getHours(); return (h>=7&&h<19)?'light':'dark'; };
+  const apply=(mode)=>{ const m=(mode==='auto')?resolveAuto():mode; document.documentElement.setAttribute('data-theme', m); };
+  const saved=localStorage.getItem(key)||'auto';
+  if(select){ select.value=saved; select.addEventListener('change',()=>{ localStorage.setItem(key,select.value); apply(select.value); }); }
+  apply(saved);
+})();
+</script>
+</body>
+</html>

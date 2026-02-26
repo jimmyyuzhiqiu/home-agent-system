@@ -1,0 +1,9 @@
+.env
+.env.runtime
+selfcheck-evidence.log
+__pycache__/
+*.pyc
+app/uploads/*
+!app/uploads/.gitkeep
+data/*
+!data/.gitkeep
