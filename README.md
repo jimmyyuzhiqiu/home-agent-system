@@ -8,13 +8,18 @@
 - MVP 形态：Flask 单体（前后端一体）+ SQLite + 可选 Nginx
 - Provider 路由：Gateway HTTP 优先，CLI Bridge 兜底
 
-## 一、开箱即用步骤（首次）
+## 一、开箱即用（推荐一键启动）
 
 ```bash
 cd /Users/jimmy/Desktop/home-agent-system
 chmod +x scripts/*.sh
-./scripts/init.sh
+./scripts/up.sh
 ```
+
+说明：
+- `up.sh` 会先做前置检查（docker / docker compose / python3 / Docker daemon）
+- 若不存在 `.env`，自动走首次初始化（等价 `init.sh`）
+- 已有 `.env` 时走日常启动（等价 `start.sh`）
 
 完成后访问：`http://localhost:8088`
 
@@ -26,12 +31,33 @@ chmod +x scripts/*.sh
 
 ---
 
-## 二、日常启动
+## 二、可复现启动与验证（Docker Compose）
+
+### 1) 启动
 
 ```bash
 cd /Users/jimmy/Desktop/home-agent-system
-./scripts/start.sh
+./scripts/up.sh
 ```
+
+### 2) 验证容器状态
+
+```bash
+docker compose ps
+```
+
+关键输出（示例）：
+- `home-agent-app ... Up (healthy)`
+- `home-agent-nginx ... Up`
+
+### 3) 验证健康检查
+
+```bash
+curl -sS http://localhost:8088/healthz
+```
+
+关键输出（示例）：
+- `ok`
 
 ---
 
