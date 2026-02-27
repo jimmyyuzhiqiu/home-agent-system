@@ -19,6 +19,8 @@ from werkzeug.utils import secure_filename
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+USER_DATA_ROOT = Path(os.getenv("USER_DATA_ROOT", str((BASE_DIR.parent / "data" / "users").resolve())).strip())
+USER_DATA_ROOT.mkdir(parents=True, exist_ok=True)
 
 WEAK_SECRET_KEYS = {"change-me", "replace_with_random_secret", "default_secret", "secret", "123456"}
 DEFAULT_ADMIN_USERNAME = "Jimmy"
@@ -261,6 +263,35 @@ def normalize_url(url: str):
     return (url or "").strip().rstrip("/")
 
 
+def sanitize_namespace(value: str):
+    raw = (value or "").strip().lower()
+    cleaned = re.sub(r"[^a-z0-9_-]+", "-", raw).strip("-")
+    return cleaned or f"user-{uuid.uuid4().hex[:12]}"
+
+
+def user_storage_paths(user: User):
+    namespace = sanitize_namespace(getattr(user, "memory_namespace", ""))
+    root = USER_DATA_ROOT / namespace
+    return {
+        "root": root,
+        "sessions": root / "sessions",
+        "memories": root / "memories",
+        "uploads": UPLOAD_DIR / namespace,
+    }
+
+
+def ensure_user_isolation(user: User):
+    changed = False
+    safe_ns = sanitize_namespace(getattr(user, "memory_namespace", ""))
+    if user.memory_namespace != safe_ns:
+        user.memory_namespace = safe_ns
+        changed = True
+    paths = user_storage_paths(user)
+    for p in paths.values():
+        p.mkdir(parents=True, exist_ok=True)
+    return paths, changed
+
+
 def is_weak_secret():
     secret = app.config["SECRET_KEY"]
     return (not secret) or (secret in WEAK_SECRET_KEYS) or len(secret) < 24
@@ -271,20 +302,35 @@ def allowed_file(filename):
 
 
 def ensure_user_agent_binding(user_id: int):
+    user = db.session.get(User, user_id)
+    if user:
+        _, changed = ensure_user_isolation(user)
+        if changed:
+            db.session.commit()
+
     binding = UserAgentBinding.query.filter_by(user_id=user_id).first()
     if binding:
         changed = False
+        ns = sanitize_namespace(user.memory_namespace) if user else f"u{user_id}"
+        if binding.planner_session_key and f"-{ns}-" not in binding.planner_session_key:
+            binding.planner_session_key = f"planner-s-{ns}-{uuid.uuid4().hex[:12]}"
+            changed = True
+        if binding.worker_session_key and f"-{ns}-" not in binding.worker_session_key:
+            binding.worker_session_key = f"worker-s-{ns}-{uuid.uuid4().hex[:12]}"
+            changed = True
         if not binding.planner_agent_id:
             binding.planner_agent_id = binding.agent_id or f"planner-u{user_id}-{uuid.uuid4().hex[:8]}"
             changed = True
         if not binding.planner_session_key:
-            binding.planner_session_key = binding.session_key or f"planner-s-u{user_id}-{uuid.uuid4().hex[:12]}"
+            ns = sanitize_namespace(user.memory_namespace) if user else f"u{user_id}"
+            binding.planner_session_key = binding.session_key or f"planner-s-{ns}-{uuid.uuid4().hex[:12]}"
             changed = True
         if not binding.worker_agent_id:
             binding.worker_agent_id = f"worker-u{user_id}-{uuid.uuid4().hex[:8]}"
             changed = True
         if not binding.worker_session_key:
-            binding.worker_session_key = f"worker-s-u{user_id}-{uuid.uuid4().hex[:12]}"
+            ns = sanitize_namespace(user.memory_namespace) if user else f"u{user_id}"
+            binding.worker_session_key = f"worker-s-{ns}-{uuid.uuid4().hex[:12]}"
             changed = True
         if changed:
             binding.agent_id = binding.planner_agent_id
@@ -292,10 +338,11 @@ def ensure_user_agent_binding(user_id: int):
             db.session.commit()
         return binding
 
-    planner_agent_id = f"planner-u{user_id}-{uuid.uuid4().hex[:8]}"
-    planner_session_key = f"planner-s-u{user_id}-{uuid.uuid4().hex[:12]}"
-    worker_agent_id = f"worker-u{user_id}-{uuid.uuid4().hex[:8]}"
-    worker_session_key = f"worker-s-u{user_id}-{uuid.uuid4().hex[:12]}"
+    ns = sanitize_namespace(user.memory_namespace) if user else f"u{user_id}"
+    planner_agent_id = f"planner-{ns}-{uuid.uuid4().hex[:8]}"
+    planner_session_key = f"planner-s-{ns}-{uuid.uuid4().hex[:12]}"
+    worker_agent_id = f"worker-{ns}-{uuid.uuid4().hex[:8]}"
+    worker_session_key = f"worker-s-{ns}-{uuid.uuid4().hex[:12]}"
     binding = UserAgentBinding(
         user_id=user_id,
         agent_id=planner_agent_id,
@@ -812,6 +859,9 @@ def snooze_onboarding():
 @app.route("/chat", methods=["GET", "POST"])
 @login_required
 def chat():
+    _, changed = ensure_user_isolation(current_user)
+    if changed:
+        db.session.commit()
     binding = ensure_user_agent_binding(current_user.id)
     conv = ensure_user_conversation(current_user.id)
     ensure_system_memories(current_user.id)
@@ -828,12 +878,15 @@ def chat():
                 flash("文件类型不支持，仅允许常见图片/文档/压缩包", "danger")
                 return redirect(url_for("chat"))
             safe_name = secure_filename(file.filename)
+            user_paths, changed = ensure_user_isolation(current_user)
+            if changed:
+                db.session.commit()
             unique_name = f"u{current_user.id}_{uuid.uuid4().hex[:8]}_{safe_name}"
-            store_path = UPLOAD_DIR / unique_name
+            store_path = user_paths["uploads"] / unique_name
             file.save(store_path)
             attachment_name = safe_name
-            attachment_path = unique_name
-            attachment_hint = f"附件: {safe_name}, 本地路径: /uploads/{unique_name}"
+            attachment_path = f"{sanitize_namespace(current_user.memory_namespace)}/{unique_name}"
+            attachment_hint = f"附件: {safe_name}, 本地路径: /uploads/{attachment_path}"
 
         if not text and not attachment_name:
             flash("请输入消息或上传附件", "warning")
@@ -943,7 +996,23 @@ def gateway_health():
 @app.route("/uploads/<path:filename>")
 @login_required
 def uploaded_file(filename):
-    return send_from_directory(UPLOAD_DIR, filename, as_attachment=False)
+    q = Message.query.filter_by(attachment_path=filename)
+    if not is_admin_user(current_user):
+        q = q.filter_by(user_id=current_user.id)
+    owned = q.first()
+    if not owned:
+        abort(403)
+
+    rel = Path(filename)
+    if rel.is_absolute() or ".." in rel.parts:
+        abort(400)
+    base_dir = UPLOAD_DIR
+    if len(rel.parts) > 1:
+        base_dir = UPLOAD_DIR / rel.parts[0]
+        rel_name = str(Path(*rel.parts[1:]))
+    else:
+        rel_name = rel.name
+    return send_from_directory(base_dir, rel_name, as_attachment=False)
 
 
 @app.route("/admin/users", methods=["GET", "POST"])

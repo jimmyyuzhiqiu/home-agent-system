@@ -27,5 +27,6 @@ python3 scripts/check_gateway.py
 docker compose up -d --build
 
 docker compose exec -T app python init_admin.py
+docker compose exec -T app python init_user_isolation.py
 
-echo "初始化完成。访问: http://localhost:8088"
+echo "初始化完成（含用户隔离目录/命名空间初始化）。访问: http://localhost:8088"
