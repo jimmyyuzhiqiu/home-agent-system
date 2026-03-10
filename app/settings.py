@@ -3,6 +3,8 @@ from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
+from flask import has_request_context, request
+
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
@@ -67,7 +69,17 @@ def oauth_is_available() -> bool:
 
 
 def get_public_base_url() -> str:
-    return get_env("HOME_AGENT_PUBLIC_BASE_URL", DEFAULT_PUBLIC_BASE_URL)
+    configured = get_env("HOME_AGENT_PUBLIC_BASE_URL", "")
+    if configured:
+        return configured
+    if has_request_context():
+        forwarded_proto = (request.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip()
+        forwarded_host = (request.headers.get("X-Forwarded-Host") or request.headers.get("Host") or "").split(",")[0].strip()
+        if forwarded_proto and forwarded_host:
+            return f"{forwarded_proto}://{forwarded_host}"
+        if forwarded_host:
+            return f"{request.scheme}://{forwarded_host}"
+    return DEFAULT_PUBLIC_BASE_URL
 
 
 def get_bridge_shared_secret() -> str:
@@ -92,3 +104,4 @@ def configure_app(app) -> None:
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["MAX_CONTENT_LENGTH"] = int(get_env("MAX_UPLOAD_MB", "20")) * 1024 * 1024
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=int(get_env("SESSION_EXPIRE_MINUTES", "120")))
+    app.config["PREFERRED_URL_SCHEME"] = urlparse(get_public_base_url()).scheme or "http"
