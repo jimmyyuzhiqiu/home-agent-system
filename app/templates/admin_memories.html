@@ -1,18 +1,41 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card">
-  <h2>记忆审计（只读，最近 800 条）</h2>
-  <table>
-    <tr><th>时间</th><th>用户</th><th>类型</th><th>来源</th><th>内容</th></tr>
-    {% for m, u in entries %}
-    <tr>
-      <td>{{ m.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-      <td>{{ u.username }}</td>
-      <td>{{ m.kind }}</td>
-      <td>{{ m.source }}</td>
-      <td style="max-width:560px;word-break:break-all;">{{ m.content }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-</div>
+<section class="admin-stack">
+  <section class="panel">
+    <div class="panel-head"><h3>筛选记忆</h3></div>
+    <form method="get" class="filters-grid">
+      <input name="q" value="{{ filters.q }}" placeholder="搜索记忆内容">
+      <input name="username" value="{{ filters.username }}" placeholder="用户">
+      <select name="kind">
+        <option value="">全部类型</option>
+        {% for option in ['manual','fact','preference','goal'] %}
+        <option value="{{ option }}" {% if filters.kind == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <select name="source">
+        <option value="">全部来源</option>
+        {% for option in ['system','auto','manual'] %}
+        <option value="{{ option }}" {% if filters.source == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-secondary">应用筛选</button>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <tr><th>时间</th><th>用户</th><th>类型</th><th>来源</th><th>内容</th></tr>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.entry.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          <td>{{ row.user.username }}</td>
+          <td><span class="badge badge-muted">{{ row.entry.kind }}</span></td>
+          <td><span class="badge {% if row.entry.source == 'system' %}badge-accent{% else %}badge-muted{% endif %}">{{ row.entry.source }}</span></td>
+          <td class="cell-break">{{ row.entry.content }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </section>
+</section>
 {% endblock %}

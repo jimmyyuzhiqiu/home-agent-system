@@ -1,60 +1,126 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card">
-  <h2>用户管理</h2>
-  <div class="grid two">
-    <div>
-      <h3>创建用户</h3>
-      <form method="post">
+<section class="admin-stack">
+  <div class="grid-two">
+    <section class="panel">
+      <div class="panel-head"><h3>创建用户</h3></div>
+      <form method="post" class="stack-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="create">
-        <input name="username" placeholder="用户名" required>
-        <input name="password" type="password" placeholder="初始密码" required>
-        <input name="note" placeholder="备注（可选）">
-        <select name="role">
-          <option value="user">user</option>
-          <option value="admin">admin</option>
-        </select>
-        <input name="openclaw_token" placeholder="用户专属 OpenClaw Token（可选）">
-        <button type="submit">创建用户</button>
+        <label><span>用户名</span><input name="username" required></label>
+        <label><span>显示名</span><input name="display_name" placeholder="例如 妈妈 / 爸爸 / Jimmy"></label>
+        <label><span>初始密码</span><input name="password" type="password" required></label>
+        <label><span>备注</span><input name="note"></label>
+        <label><span>角色</span><select name="role"><option value="user">用户</option><option value="admin">管理员</option></select></label>
+        <label><span>OpenClaw Token</span><input name="openclaw_token"></label>
+        <button type="submit" class="btn btn-primary">创建用户</button>
       </form>
-    </div>
-    <div>
-      <h3>说明</h3>
-      <ul>
-        <li>普通用户仅可查看和操作自己的会话。</li>
-        <li>新建/重置密码后，用户下次登录会被要求改密。</li>
-        <li>新创建用户首次登录会自动进入新手引导页。</li>
-        <li>用户 token 存在时，会覆盖全局网关 token。</li>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h3>筛选</h3></div>
+      <form method="get" class="filters-grid">
+        <input name="q" value="{{ filters.q }}" placeholder="搜索用户名或备注">
+        <select name="role">
+          <option value="">全部角色</option>
+          <option value="user" {% if filters.role == 'user' %}selected{% endif %}>用户</option>
+          <option value="admin" {% if filters.role == 'admin' %}selected{% endif %}>管理员</option>
+        </select>
+        <select name="onboarding">
+          <option value="">全部引导状态</option>
+          <option value="done" {% if filters.onboarding == 'done' %}selected{% endif %}>已完成</option>
+          <option value="pending" {% if filters.onboarding == 'pending' %}selected{% endif %}>待完成</option>
+        </select>
+        <button type="submit" class="btn btn-secondary">应用筛选</button>
+      </form>
+      <ul class="list-clean muted">
+        <li>普通用户只操作自己的会话和记忆。</li>
+        <li>新用户首次登录会进入引导页。</li>
+        <li>用户级 token 会覆盖全局网关 token。</li>
       </ul>
-    </div>
+    </section>
   </div>
-</div>
 
-<div class="card" style="margin-top:16px;">
-  <h3>已有用户</h3>
-  <table>
-    <tr><th>ID</th><th>用户名</th><th>角色</th><th>备注</th><th>命名空间</th><th>新手引导</th><th>强制改密</th><th>重置密码</th></tr>
-    {% for u in users %}
-    <tr>
-      <td>{{ u.id }}</td>
-      <td>{{ u.username }}</td>
-      <td>{{ u.role_normalized }}</td>
-      <td>{{ u.note or '-' }}</td>
-      <td><span class="code">{{ u.memory_namespace }}</span></td>
-      <td>{{ '已完成' if u.onboarding_completed else '待完成' }}</td>
-      <td>{{ '是' if u.force_password_change else '否' }}</td>
-      <td>
-        <form method="post">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="action" value="reset_pwd">
-          <input type="hidden" name="user_id" value="{{ u.id }}">
-          <input name="new_password" type="password" placeholder="新密码" required>
-          <button class="warning" type="submit">重置</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </table>
-</div>
+  <section class="panel">
+    <div class="panel-head"><h3>用户列表</h3></div>
+    <div class="table-wrap">
+      <table>
+        <tr><th>ID</th><th>用户名</th><th>显示名</th><th>角色</th><th>执行档位</th><th>备注</th><th>命名空间</th><th>引导</th><th>最近活跃</th><th>最近登录</th><th>登录 IP</th><th>会话数</th><th>记忆数</th><th>最近任务</th><th>BlueBubbles</th><th>绑定 / 修复</th><th>重置密码</th></tr>
+        {% for row in rows %}
+        {% set user = row.user %}
+        <tr>
+          <td>{{ user.id }}</td>
+          <td>{{ user.username }}</td>
+          <td>{{ user.display_name or '-' }}</td>
+          <td><span class="badge badge-muted">{{ '管理员' if user.role_normalized == 'admin' else '用户' }}</span></td>
+          <td><span class="badge badge-muted">{{ user.execution_profile }}</span></td>
+          <td>{{ user.note or '-' }}</td>
+          <td><span class="code-inline">{{ user.memory_namespace }}</span></td>
+          <td>{{ '已完成' if user.onboarding_completed else '待完成' }}</td>
+          <td>{{ row.last_active_at.strftime('%Y-%m-%d %H:%M') if row.last_active_at else '-' }}</td>
+          <td>{{ user.last_login_at.strftime('%Y-%m-%d %H:%M') if user.last_login_at else '-' }}</td>
+          <td>{{ user.last_login_ip or '-' }}</td>
+          <td>{{ row.conversation_count }}</td>
+          <td>{{ row.memory_count }}</td>
+          <td>
+            {% if row.last_run %}
+            <span class="badge badge-{{ row.last_run.status or 'muted' }}">{{ row.last_run.status or '空闲' }}</span>
+            {% else %}
+            <span class="badge badge-muted">空闲</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user.bluebubbles_enabled and user.bluebubbles_recipient %}
+            <div class="badge badge-success">已启用</div>
+            <div class="muted">{{ user.bluebubbles_label or user.bluebubbles_recipient }}</div>
+            {% else %}
+            <span class="badge badge-muted">未启用</span>
+            {% endif %}
+          </td>
+          <td>
+            <details class="audit-details">
+              <summary>绑定设置</summary>
+              <div class="audit-detail-body">
+                <form method="post" action="{{ url_for('admin.admin_user_bindings', user_id=user.id) }}" class="stack-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <label><span>显示名</span><input name="display_name" value="{{ user.display_name or user.username }}"></label>
+                  <label><span>执行档位</span>
+                    <select name="execution_profile">
+                      <option value="family_full" {% if user.execution_profile == 'family_full' %}selected{% endif %}>family_full</option>
+                      <option value="admin_full" {% if user.execution_profile == 'admin_full' %}selected{% endif %}>admin_full</option>
+                    </select>
+                  </label>
+                  <label><span>回发号码 / recipient</span><input name="bluebubbles_recipient" value="{{ user.bluebubbles_recipient or '' }}"></label>
+                  <label><span>展示标签</span><input name="bluebubbles_label" value="{{ user.bluebubbles_label or '' }}"></label>
+                  <label><input type="checkbox" name="bluebubbles_enabled" {% if user.bluebubbles_enabled %}checked{% endif %}> 启用 BlueBubbles 回发</label>
+                  <button type="submit" class="btn btn-secondary btn-compact">保存绑定</button>
+                </form>
+                {% if row.binding %}
+                <div class="muted">
+                  planner={{ row.binding.planner_agent_id }}<br>
+                  worker={{ row.binding.worker_agent_id }}<br>
+                  workspace={{ row.binding.planner_workspace or '-' }}
+                </div>
+                {% endif %}
+                <form method="post" action="{{ url_for('admin.admin_repair_agent', user_id=user.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-secondary btn-compact">修复 agent / 会话</button>
+                </form>
+              </div>
+            </details>
+          </td>
+          <td>
+            <form method="post" class="inline-reset-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="action" value="reset_pwd">
+              <input type="hidden" name="user_id" value="{{ user.id }}">
+              <input name="new_password" type="password" placeholder="新密码" required>
+              <button class="btn btn-secondary btn-compact" type="submit">重置</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </section>
+</section>
 {% endblock %}

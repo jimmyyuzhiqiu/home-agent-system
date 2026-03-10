@@ -1,10 +1,12 @@
 services:
-  app:
+  web:
     build: ./app
-    container_name: home-agent-app
+    container_name: home-agent-web
     env_file:
       - .env
-      - .env.runtime
+    environment:
+      HOME_AGENT_BRIDGE_URL: http://runtime:18888
+      HOME_AGENT_RUNTIME_WORKROOT: /runtime/workspaces/users
     volumes:
       - app_data:/data
       - app_uploads:/app/uploads
@@ -15,11 +17,37 @@ services:
       timeout: 5s
       retries: 6
 
+  runtime:
+    build: ./runtime
+    container_name: home-agent-runtime
+    env_file:
+      - .env
+    environment:
+      HOME_AGENT_BRIDGE_PORT: 18888
+      OPENCLAW_RUNTIME_HOME: /runtime-state
+      OPENCLAW_RUNTIME_PROFILE: runtime
+      HOME_AGENT_SHARED_UPLOAD_ROOT: /runtime/uploads
+      HOME_AGENT_RUNTIME_WORKROOT: /runtime/workspaces/users
+      OPENCLAW_GATEWAY_PORT: 3333
+      OPENCLAW_ENABLE_GATEWAY: "1"
+    volumes:
+      - app_uploads:/runtime/uploads
+      - openclaw_state:/runtime-state
+      - runtime_workspaces:/runtime/workspaces
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18888/health', timeout=3)"]
+      interval: 12s
+      timeout: 5s
+      retries: 8
+
   nginx:
     image: nginx:1.27-alpine
     container_name: home-agent-nginx
     depends_on:
-      app:
+      web:
+        condition: service_healthy
+      runtime:
         condition: service_healthy
     ports:
       - "8088:80"
@@ -32,3 +60,7 @@ volumes:
     name: home_agent_app_data
   app_uploads:
     name: home_agent_app_uploads
+  openclaw_state:
+    name: home_agent_openclaw_state
+  runtime_workspaces:
+    name: home_agent_runtime_workspaces

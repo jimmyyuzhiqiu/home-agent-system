@@ -1,13 +1,45 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card" style="max-width:480px;margin:40px auto;">
-  <h2>家庭多用户 AI Agent 登录</h2>
-  <p class="muted">支持管理员与普通用户独立会话，默认首次登录后建议尽快改密。</p>
-  <form method="post">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div><input name="username" placeholder="用户名" required></div>
-    <div><input name="password" type="password" placeholder="密码" required></div>
-    <button type="submit" style="width:100%;margin-top:8px;">登录</button>
-  </form>
-</div>
+<section class="auth-layout">
+  <div class="hero-panel">
+    <p class="eyebrow">可信入口</p>
+    <h2>把家庭事务、长期偏好和执行过程，统一在一个干净可靠的中枢里。</h2>
+    <p class="muted">这不是一次性的聊天页面，而是一套可以长期使用、可审计、可维护的家庭智能工作台。</p>
+    <div class="feature-stack">
+      <div class="feature-item">
+        <strong>双 Agent 闭环</strong>
+        <p>系统会先拆解任务，再执行和校验，避免只给你一段空泛回复。</p>
+      </div>
+      <div class="feature-item">
+        <strong>私有上下文隔离</strong>
+        <p>会话、记忆和附件默认按用户隔离，减少不同家庭成员之间的内容混淆。</p>
+      </div>
+      <div class="feature-item">
+        <strong>管理员可审计</strong>
+        <p>出现问题时，管理员可以看到会话、记忆和执行链路，方便长期维护系统。</p>
+      </div>
+    </div>
+  </div>
+  <div class="auth-card panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">安全进入</p>
+        <h3>安全进入系统</h3>
+      </div>
+    </div>
+    <form method="post" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>
+        <span>用户名</span>
+        <input name="username" placeholder="例如 Jimmy" required>
+      </label>
+      <label>
+        <span>密码</span>
+        <input name="password" type="password" placeholder="输入你的密码" required>
+      </label>
+      <button type="submit" class="btn btn-primary full-btn">进入系统</button>
+    </form>
+    <p class="muted">登录受限流与 CSRF 保护，异常尝试会短时锁定。</p>
+  </div>
+</section>
 {% endblock %}

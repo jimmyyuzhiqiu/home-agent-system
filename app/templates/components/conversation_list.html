@@ -1,0 +1,142 @@
+<aside class="panel conversation-panel">
+  <div class="panel-head conversation-panel-head">
+    <div>
+      <p class="eyebrow">会话导航</p>
+      <h3>会话列表</h3>
+    </div>
+    <form method="post" action="{{ url_for('chat.create_chat_conversation') }}" class="inline-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="title" value="新会话">
+      <button type="submit" class="btn btn-primary btn-compact">新建会话</button>
+    </form>
+  </div>
+
+  <form method="get" action="{{ url_for('chat.chat') }}" class="conversation-search">
+    <input type="hidden" name="conversation" value="{{ conversation.id }}">
+    <input type="text" name="q" value="{{ conversation_sections.conversation_filters.q }}" placeholder="搜索标题或最近摘要">
+    <div class="conversation-search-row">
+      <select name="scope">
+        <option value="active" {% if conversation_sections.conversation_filters.scope == 'active' %}selected{% endif %}>仅看活跃会话</option>
+        <option value="archived" {% if conversation_sections.conversation_filters.scope == 'archived' %}selected{% endif %}>仅看已归档</option>
+        <option value="all" {% if conversation_sections.conversation_filters.scope == 'all' %}selected{% endif %}>全部会话</option>
+      </select>
+      <button type="submit" class="btn btn-secondary btn-compact">筛选</button>
+    </div>
+  </form>
+
+  {% if conversation_sections.pinned_items %}
+  <section class="conversation-group">
+    <div class="section-title">置顶会话</div>
+    <div class="conversation-list">
+      {% for item in conversation_sections.pinned_items %}
+      <article class="conversation-item {% if item.id == conversation.id %}is-active{% endif %}">
+        <a class="conversation-main" href="{{ url_for('chat.chat', conversation=item.id, q=conversation_sections.conversation_filters.q, scope='active') }}">
+          <div class="conversation-main-head">
+            <strong>{{ item.title }}</strong>
+            <span class="conversation-status is-{{ item.last_status or 'idle' }}"></span>
+          </div>
+          <p class="conversation-preview">{{ item.last_message_preview or '准备开始新的对话' }}</p>
+          <div class="conversation-meta-row">
+            <span class="badge badge-accent">置顶</span>
+            {% if item.has_recent_attachment %}<span class="badge badge-muted">含附件</span>{% endif %}
+            <span class="conversation-meta">{{ item.updated_at.strftime('%m-%d %H:%M') if item.updated_at else '刚刚创建' }}</span>
+          </div>
+        </a>
+        <div class="conversation-actions">
+          <form method="post" action="{{ url_for('chat.pin_chat_conversation', conversation_id=item.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="icon-btn" aria-label="取消置顶" title="取消置顶">{% with icon='pin' %}{% include 'components/icon.html' %}{% endwith %}</button>
+          </form>
+          <details class="rename-popover">
+            <summary class="icon-btn" aria-label="重命名" title="重命名">{% with icon='edit' %}{% include 'components/icon.html' %}{% endwith %}</summary>
+            <form method="post" action="{{ url_for('chat.rename_chat_conversation', conversation_id=item.id) }}" class="mini-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="text" name="title" value="{{ item.title }}" maxlength="120">
+              <button type="submit" class="btn btn-secondary btn-compact">保存</button>
+            </form>
+          </details>
+          <form method="post" action="{{ url_for('chat.archive_chat_conversation', conversation_id=item.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="icon-btn" aria-label="归档会话" title="归档会话">{% with icon='archive' %}{% include 'components/icon.html' %}{% endwith %}</button>
+          </form>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="conversation-group">
+    <div class="section-title">最近会话</div>
+    <div class="conversation-list">
+      {% for item in conversation_sections.recent_items %}
+      <article class="conversation-item {% if item.id == conversation.id %}is-active{% endif %}">
+        <a class="conversation-main" href="{{ url_for('chat.chat', conversation=item.id, q=conversation_sections.conversation_filters.q, scope='active') }}">
+          <div class="conversation-main-head">
+            <strong>{{ item.title }}</strong>
+            <span class="conversation-status is-{{ item.last_status or 'idle' }}"></span>
+          </div>
+          <p class="conversation-preview">{{ item.last_message_preview or '准备开始新的对话' }}</p>
+          <div class="conversation-meta-row">
+            {% if item.has_recent_attachment %}<span class="badge badge-muted">含附件</span>{% endif %}
+            {% if item.last_message_role == 'assistant' %}<span class="badge badge-muted">最近由系统回复</span>{% endif %}
+            <span class="conversation-meta">{{ item.updated_at.strftime('%m-%d %H:%M') if item.updated_at else '刚刚创建' }}</span>
+          </div>
+        </a>
+        <div class="conversation-actions">
+          <form method="post" action="{{ url_for('chat.pin_chat_conversation', conversation_id=item.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="icon-btn" aria-label="置顶会话" title="置顶会话">{% with icon='pin' %}{% include 'components/icon.html' %}{% endwith %}</button>
+          </form>
+          <details class="rename-popover">
+            <summary class="icon-btn" aria-label="重命名" title="重命名">{% with icon='edit' %}{% include 'components/icon.html' %}{% endwith %}</summary>
+            <form method="post" action="{{ url_for('chat.rename_chat_conversation', conversation_id=item.id) }}" class="mini-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="text" name="title" value="{{ item.title }}" maxlength="120">
+              <button type="submit" class="btn btn-secondary btn-compact">保存</button>
+            </form>
+          </details>
+          <form method="post" action="{{ url_for('chat.archive_chat_conversation', conversation_id=item.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="icon-btn" aria-label="归档会话" title="归档会话">{% with icon='archive' %}{% include 'components/icon.html' %}{% endwith %}</button>
+          </form>
+        </div>
+      </article>
+      {% else %}
+      <div class="empty-state compact-empty">
+        <h4>没有匹配的活跃会话</h4>
+        <p class="muted">换个关键词，或者直接新建一个会话开始。</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <details class="archive-group" {% if is_archived_view or conversation_sections.conversation_filters.scope == 'archived' %}open{% endif %}>
+    <summary>已归档会话</summary>
+    <div class="conversation-list archive-list">
+      {% for item in conversation_sections.archived_items %}
+      <article class="conversation-item is-archived {% if item.id == conversation.id %}is-active{% endif %}">
+        <a class="conversation-main" href="{{ url_for('chat.chat', conversation=item.id, q=conversation_sections.conversation_filters.q, scope='archived') }}">
+          <div class="conversation-main-head">
+            <strong>{{ item.title }}</strong>
+            <span class="conversation-status is-{{ item.last_status or 'idle' }}"></span>
+          </div>
+          <p class="conversation-preview">{{ item.last_message_preview or '无最近摘要' }}</p>
+          <div class="conversation-meta-row">
+            <span class="badge badge-muted">已归档</span>
+            <span class="conversation-meta">{{ item.updated_at.strftime('%m-%d %H:%M') if item.updated_at else '刚刚创建' }}</span>
+          </div>
+        </a>
+        <div class="conversation-actions">
+          <form method="post" action="{{ url_for('chat.restore_chat_conversation', conversation_id=item.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="icon-btn" aria-label="恢复会话" title="恢复会话">{% with icon='restore' %}{% include 'components/icon.html' %}{% endwith %}</button>
+          </form>
+        </div>
+      </article>
+      {% else %}
+      <p class="muted">还没有归档会话。</p>
+      {% endfor %}
+    </div>
+  </details>
+</aside>

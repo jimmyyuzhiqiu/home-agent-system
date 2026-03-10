@@ -3,54 +3,113 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Home Agent System</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{{ page_title or '家庭智能中枢' }}</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem("themeMode") || "auto";
+        var actual = stored === "auto"
+          ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : stored;
+        document.documentElement.setAttribute("data-theme", actual);
+      } catch (error) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 </head>
-<body>
-<div class="container">
-  {% if current_user.is_authenticated %}
-  <div class="nav">
-    <div>
-      <a href="{{ url_for('chat') }}">聊天</a>
-      {% if current_user.is_admin %}
-      <a href="{{ url_for('admin_users') }}">用户管理</a>
-      <a href="{{ url_for('admin_chats') }}">聊天审计</a>
-      <a href="{{ url_for('admin_memories') }}">记忆审计</a>
-      <a href="{{ url_for('admin_agents') }}">Agent审计</a>
-      <a href="{{ url_for('admin_session_audit') }}">会话审计</a>
-      <a href="{{ url_for('security_setup') }}">安全中心</a>
-      {% endif %}
+<body data-endpoint="{{ request.endpoint or '' }}">
+{% set authed = current_user.is_authenticated %}
+{% if authed %}
+<div class="app-shell" id="appShell">
+  <button type="button" class="sidebar-overlay" id="sidebarOverlay" aria-label="关闭导航"></button>
+  {% include 'components/shell.html' %}
+  <main class="content-wrap">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" id="sidebarToggle" class="icon-btn topbar-toggle" aria-label="打开导航">
+          <span></span><span></span><span></span>
+        </button>
+        <div>
+          <p class="eyebrow">家庭智能中枢</p>
+          <h1 class="topbar-title">{{ page_title or '家庭智能中枢' }}</h1>
+          {% if page_subtitle %}<p class="topbar-subtitle">{{ page_subtitle }}</p>{% endif %}
+        </div>
+      </div>
+      <div class="topbar-tools">
+        {% if gateway_state %}
+        <span class="status-pill {{ 'is-online' if gateway_state.chat_ready else 'is-offline' }}">
+          {{ gateway_state.compact_label or ('运行时在线' if gateway_state.chat_ready else '运行时离线') }}
+        </span>
+        {% endif %}
+        {% if latest_run %}
+        <span class="status-pill is-run">
+          最近任务 {{ latest_run_label or '空闲' }}
+        </span>
+        {% endif %}
+        {% if latest_summary %}
+        <span class="summary-pill">{{ latest_summary }}</span>
+        {% endif %}
+        <select id="themeSelect" class="theme-select" title="主题模式">
+          <option value="auto">跟随系统</option>
+          <option value="light">浅色</option>
+          <option value="dark">深色</option>
+        </select>
+        <span class="chip">{{ current_user.display_name or current_user.username }} / {{ '管理员' if current_user.role_normalized == 'admin' else '用户' }}</span>
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">退出</a>
+      </div>
+    </header>
+    {% block page_actions %}{% endblock %}
+    {% if security_alert.show %}
+    <div class="flash flash-warning">
+      {{ security_alert.message }}
+      <a href="{{ url_for('auth.security_setup') }}">前往安全中心</a>
     </div>
-    <div class="right">
-      <select id="themeSelect" class="theme-select" title="主题模式">
-        <option value="auto">Auto</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-      <span class="muted">{{ current_user.username }} / {{ current_user.role_normalized }}</span>
-      <a href="{{ url_for('logout') }}">退出</a>
+    {% endif %}
+    <div class="flash-stack">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
     </div>
+{% else %}
+<div class="public-shell">
+  <div class="public-topbar">
+    <div class="public-brand">
+      <p class="eyebrow">家庭智能中枢</p>
+      <h1>家庭智能中枢</h1>
+    </div>
+    <select id="themeSelect" class="theme-select" title="主题模式">
+      <option value="auto">跟随系统</option>
+      <option value="light">浅色</option>
+      <option value="dark">深色</option>
+    </select>
   </div>
-  {% endif %}
-
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category, message in messages %}
-      <div class="flash {{ category }}">{{ message }}</div>
-    {% endfor %}
-  {% endwith %}
-
-  {% block content %}{% endblock %}
+  <div class="flash-stack">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+  </div>
+{% endif %}
+{% block content %}{% endblock %}
+{% if authed %}
+  </main>
 </div>
-<script>
-(function(){
-  const key='themeMode';
-  const select=document.getElementById('themeSelect');
-  const resolveAuto=()=>{ const h=new Date().getHours(); return (h>=7&&h<19)?'light':'dark'; };
-  const apply=(mode)=>{ const m=(mode==='auto')?resolveAuto():mode; document.documentElement.setAttribute('data-theme', m); };
-  const saved=localStorage.getItem(key)||'auto';
-  if(select){ select.value=saved; select.addEventListener('change',()=>{ localStorage.setItem(key,select.value); apply(select.value); }); }
-  apply(saved);
-})();
-</script>
+{% else %}
+</div>
+{% endif %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

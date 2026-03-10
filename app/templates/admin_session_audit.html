@@ -1,28 +1,93 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card">
-  <h2>会话审计（最近 300 个会话）</h2>
-  <p class="muted">用于管理员查看会话元数据（用户、角色、会话ID、模型、调用来源、消息量、最近执行耗时等）。</p>
-  <table>
-    <tr>
-      <th>会话ID</th><th>用户</th><th>角色</th><th>Session Key</th><th>Agent</th><th>模型</th><th>来源</th><th>消息数</th><th>最近消息</th><th>最近运行</th><th>耗时(ms)</th><th>双Agent</th>
-    </tr>
-    {% for r in rows %}
-    <tr>
-      <td>{{ r.conversation_id }}</td>
-      <td>{{ r.username }}</td>
-      <td>{{ r.role }}</td>
-      <td><span class="code">{{ r.session_key }}</span></td>
-      <td><span class="code">{{ r.agent_id or '-' }}</span></td>
-      <td>{{ r.model or '-' }}</td>
-      <td>{{ r.last_provider or '-' }}</td>
-      <td>{{ r.message_count }}</td>
-      <td>{{ r.last_message_at.strftime('%Y-%m-%d %H:%M:%S') if r.last_message_at else '-' }}</td>
-      <td>{{ r.last_run_at.strftime('%Y-%m-%d %H:%M:%S') if r.last_run_at else '-' }}</td>
-      <td>{{ r.last_duration_ms if r.last_duration_ms is not none else '-' }}</td>
-      <td>{% if r.dual_agent_triggered %}<span class="badge success">是</span>{% else %}<span class="badge">否</span>{% endif %}</td>
-    </tr>
-    {% endfor %}
-  </table>
-</div>
+<section class="admin-stack">
+  <section class="panel">
+    <div class="panel-head"><h3>筛选会话</h3></div>
+    <form method="get" class="filters-grid">
+      <input name="q" value="{{ filters.q }}" placeholder="搜索用户、标题、摘要">
+      <select name="role">
+        <option value="">全部角色</option>
+        <option value="user" {% if filters.role == 'user' %}selected{% endif %}>用户</option>
+        <option value="admin" {% if filters.role == 'admin' %}selected{% endif %}>管理员</option>
+      </select>
+      <select name="status">
+        <option value="">全部状态</option>
+        {% for option in ['done', 'blocked', 'failed', 'running', 'queued'] %}
+        <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <select name="stage">
+        <option value="">全部阶段</option>
+        {% for option in ['planner', 'worker', 'verify', 'complete', 'queued'] %}
+        <option value="{{ option }}" {% if filters.stage == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <select name="dual">
+        <option value="">全部执行模式</option>
+        <option value="yes" {% if filters.dual == 'yes' %}selected{% endif %}>双 Agent</option>
+        <option value="no" {% if filters.dual == 'no' %}selected{% endif %}>非双 Agent</option>
+      </select>
+      <select name="archived">
+        <option value="">全部归档状态</option>
+        <option value="yes" {% if filters.archived == 'yes' %}selected{% endif %}>已归档</option>
+        <option value="no" {% if filters.archived == 'no' %}selected{% endif %}>未归档</option>
+      </select>
+      <select name="pinned">
+        <option value="">全部置顶状态</option>
+        <option value="yes" {% if filters.pinned == 'yes' %}selected{% endif %}>已置顶</option>
+        <option value="no" {% if filters.pinned == 'no' %}selected{% endif %}>未置顶</option>
+      </select>
+      <select name="has_attachment">
+        <option value="">全部附件情况</option>
+        <option value="yes" {% if filters.has_attachment == 'yes' %}selected{% endif %}>最近含附件</option>
+        <option value="no" {% if filters.has_attachment == 'no' %}selected{% endif %}>最近无附件</option>
+      </select>
+      <select name="limit">
+        {% for option in [100, 200, 300, 500] %}
+        <option value="{{ option }}" {% if filters.limit == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-secondary">应用筛选</button>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <tr><th>ID</th><th>用户</th><th>角色</th><th>标题</th><th>Session Key</th><th>Agent</th><th>模型</th><th>来源</th><th>消息数</th><th>最近更新</th><th>耗时(ms)</th><th>双Agent</th><th>会话标签</th><th>最近运行</th></tr>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.conversation_id }}</td>
+          <td>{{ row.username }}</td>
+          <td>{{ '管理员' if row.role == 'admin' else '用户' }}</td>
+          <td>{{ row.title }}</td>
+          <td><span class="code-inline">{{ row.session_key }}</span></td>
+          <td><span class="code-inline">{{ row.agent_id or '-' }}</span></td>
+          <td>{{ row.model or '-' }}</td>
+          <td>{{ row.last_provider or '-' }}</td>
+          <td>{{ row.message_count }}</td>
+          <td>{{ row.updated_at.strftime('%Y-%m-%d %H:%M:%S') if row.updated_at else '-' }}</td>
+          <td>{{ row.last_duration_ms if row.last_duration_ms is not none else '-' }}</td>
+          <td><span class="badge badge-{{ 'success' if row.dual_agent_triggered else 'muted' }}">{{ '是' if row.dual_agent_triggered else '否' }}</span></td>
+          <td class="cell-break">
+            {% if row.archived %}<span class="badge badge-muted">已归档</span>{% endif %}
+            {% if row.pinned %}<span class="badge badge-accent">置顶</span>{% endif %}
+            {% if row.has_attachment %}<span class="badge badge-muted">最近含附件</span>{% endif %}
+            {% if row.last_delivery_status %}<span class="badge badge-muted">回发 {{ row.last_delivery_status }}</span>{% endif %}
+            {% if row.last_message_role %}<div class="muted">最后消息角色：{{ row.last_message_role }}</div>{% endif %}
+          </td>
+          <td class="cell-break">
+            {% if row.last_status %}
+            <span class="badge badge-{{ row.last_status }}">{{ row.last_status }}</span>
+            <div class="muted">阶段：{{ row.current_stage or '-' }}</div>
+            <div>{{ row.last_summary or '-' }}</div>
+            {% else %}
+            -
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </section>
+</section>
 {% endblock %}

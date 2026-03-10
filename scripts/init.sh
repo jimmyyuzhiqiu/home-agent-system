@@ -23,26 +23,26 @@ import secrets
 print(secrets.token_urlsafe(36))
 PY
 )
+  BRIDGE_SECRET=$(python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(36))
+PY
+)
   cat > .env <<EOF
 SECRET_KEY=${SECRET}
 DATABASE_URL=sqlite:////data/app.db
-OPENCLAW_BASE_URL=http://host.docker.internal:3333
-OPENCLAW_GATEWAY_TOKEN=
-ADMIN_USERNAME=Jimmy
-ADMIN_PASSWORD=Jimmy11a@123
+OPENCLAW_BASE_URL=http://runtime:3333
+HOME_AGENT_BRIDGE_URL=http://runtime:18888
+HOME_AGENT_BRIDGE_PORT=18888
+HOME_AGENT_BRIDGE_SHARED_SECRET=${BRIDGE_SECRET}
+HOME_AGENT_PUBLIC_BASE_URL=http://127.0.0.1:8088
+HOME_AGENT_RUNTIME_WORKROOT=/runtime/workspaces/users
+OPENCLAW_RUNTIME_PROFILE=runtime
 SESSION_EXPIRE_MINUTES=120
 MAX_UPLOAD_MB=20
 EOF
   echo "已生成 .env（含随机 SECRET_KEY）"
 fi
 
-python3 scripts/sync_openclaw_gateway.py || echo "[warn] 未同步到 OpenClaw 网关配置，继续启动（CLI Bridge 仍可用）"
-[ -f .env.runtime ] || printf "OPENCLAW_BASE_URL=http://host.docker.internal:3333\nOPENCLAW_GATEWAY_TOKEN=\n" > .env.runtime
-python3 scripts/check_gateway.py || echo "[warn] 网关连通性检查失败，继续启动（CLI Bridge 兜底）"
-
-docker compose up -d --build
-
-docker compose exec -T app python init_admin.py
-docker compose exec -T app python init_user_isolation.py
-
-echo "初始化完成（含用户隔离目录/命名空间初始化）。访问: http://localhost:8088"
+docker compose up -d --build --remove-orphans
+echo "初始化完成。访问: http://localhost:8088 ，首次部署请在浏览器完成 /setup。"

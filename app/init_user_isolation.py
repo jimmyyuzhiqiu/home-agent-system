@@ -1,4 +1,12 @@
-from app import app, db, User, ensure_user_isolation, ensure_user_agent_binding, ensure_user_conversation, ensure_system_memories, sanitize_namespace
+from extensions import db
+from factory import create_app
+from models import User
+from services.conversations import ensure_user_agent_binding, ensure_user_conversation, ensure_user_isolation
+from services.memory import ensure_system_memories
+from utils import sanitize_namespace
+
+
+app = create_app()
 
 
 def main():

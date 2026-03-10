@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="panel memory-hero">
+  <div>
+    <p class="eyebrow">记忆中心</p>
+    <h2>系统会记住真正影响协作效率的内容</h2>
+    <p class="muted">这里会显示你手动保存的偏好、系统自动提取的习惯，以及系统为了稳定运行写入的约束。你可以置顶、归档和恢复，但系统记忆不会被删除。</p>
+  </div>
+  {% if latest_summary %}
+  <div class="memory-summary-card">
+    <span class="badge badge-muted">最近任务</span>
+    <p>{{ latest_summary }}</p>
+  </div>
+  {% endif %}
+</section>
+
+<section class="workspace-grid memories-grid">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">新增记忆</p>
+        <h3>告诉系统你长期在意什么</h3>
+      </div>
+    </div>
+    <form method="post" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label><span>类型</span>
+        <select name="kind">
+          {% for option in ['manual', 'preference', 'goal', 'fact'] %}
+          <option value="{{ option }}">{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label><span>内容</span><textarea name="content" rows="5" placeholder="例如：以后默认优先输出能直接执行的清单，不要只给原则。"></textarea></label>
+      <button type="submit" class="btn btn-primary">保存记忆</button>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">筛选条件</p>
+        <h3>按来源和类型查看</h3>
+      </div>
+    </div>
+    <form method="get" class="filters-grid">
+      <input name="q" value="{{ filters.q }}" placeholder="搜索内容">
+      <select name="kind">
+        <option value="">全部类型</option>
+        {% for option in ['manual', 'preference', 'goal', 'fact'] %}
+        <option value="{{ option }}" {% if filters.kind == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <select name="source">
+        <option value="">全部来源</option>
+        {% for option in ['manual', 'auto', 'system'] %}
+        <option value="{{ option }}" {% if filters.source == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <select name="show">
+        <option value="active" {% if filters.show == 'active' %}selected{% endif %}>活跃记忆</option>
+        <option value="archived" {% if filters.show == 'archived' %}selected{% endif %}>含已归档</option>
+      </select>
+      <select name="sort">
+        <option value="recent" {% if filters.sort == 'recent' %}selected{% endif %}>按最近时间</option>
+        <option value="pinned" {% if filters.sort == 'pinned' %}selected{% endif %}>置顶优先</option>
+      </select>
+      <button type="submit" class="btn btn-secondary">应用筛选</button>
+    </form>
+  </section>
+</section>
+
+<section class="memory-board">
+  {% for section in [
+    ('置顶记忆', grouped_entries.pinned, '你最希望系统长期优先遵守的内容。'),
+    ('手动记忆', grouped_entries.manual, '你主动保存的偏好与长期背景。'),
+    ('自动提取', grouped_entries.auto, '系统从对话中抽取出的偏好、目标和事实。'),
+    ('系统记忆', grouped_entries.system, '系统写入的执行约束和安全边界。'),
+    ('已归档', grouped_entries.archived, '暂时不参与日常协作的历史记忆。')
+  ] %}
+  <section class="panel memory-section">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">{{ section[0] }}</p>
+        <h3>{{ section[0] }}</h3>
+        <p class="muted">{{ section[2] }}</p>
+      </div>
+    </div>
+    <div class="memory-list">
+      {% for entry in section[1] %}
+      <article class="memory-card {% if entry.source == 'system' %}is-system{% endif %}">
+        <div class="memory-head">
+          <div class="memory-tags">
+            <span class="badge badge-muted">{{ entry.kind }}</span>
+            <span class="badge {% if entry.source == 'system' %}badge-accent{% else %}badge-muted{% endif %}">{{ entry.source }}</span>
+            {% if entry.pinned %}<span class="badge badge-success">置顶</span>{% endif %}
+            {% if entry.archived_at %}<span class="badge badge-muted">已归档</span>{% endif %}
+          </div>
+          <div class="memory-actions">
+            {% if not entry.archived_at %}
+            <form method="post" action="{{ url_for('chat.pin_memory', memory_id=entry.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="icon-btn" aria-label="切换置顶" title="切换置顶">{% with icon='pin' %}{% include 'components/icon.html' %}{% endwith %}</button>
+            </form>
+            <form method="post" action="{{ url_for('chat.archive_memory_entry', memory_id=entry.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="icon-btn" aria-label="归档记忆" title="归档记忆">{% with icon='archive' %}{% include 'components/icon.html' %}{% endwith %}</button>
+            </form>
+            {% else %}
+            <form method="post" action="{{ url_for('chat.restore_memory_entry', memory_id=entry.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="icon-btn" aria-label="恢复记忆" title="恢复记忆">{% with icon='restore' %}{% include 'components/icon.html' %}{% endwith %}</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        <p>{{ entry.content }}</p>
+        <div class="muted">{{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+      </article>
+      {% else %}
+      <div class="empty-state compact-empty">
+        <h4>当前分组没有内容</h4>
+        <p class="muted">继续使用系统，它会逐步积累上下文；也可以手动补充。</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</section>
+{% endblock %}

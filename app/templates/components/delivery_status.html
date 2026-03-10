@@ -1,0 +1,19 @@
+{% if latest_run_payload and latest_run_payload.delivery_status and latest_run_payload.delivery_status != 'skipped' %}
+<section class="delivery-card is-{{ latest_run_payload.delivery_status }}">
+  <div>
+    <p class="eyebrow">结果回发</p>
+    <h4>
+      {% if latest_run_payload.delivery_status == 'done' %}
+      已发送到绑定手机号
+      {% elif latest_run_payload.delivery_status == 'failed' %}
+      结果已生成，但回发失败
+      {% elif latest_run_payload.delivery_status == 'disabled' %}
+      当前部署未启用外部回发
+      {% else %}
+      正在准备发送
+      {% endif %}
+    </h4>
+  </div>
+  <span class="badge badge-{{ latest_run_payload.delivery_status }}">{{ latest_run_payload.delivery_status }}</span>
+</section>
+{% endif %}

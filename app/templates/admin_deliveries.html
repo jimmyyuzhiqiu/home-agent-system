@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="admin-stack">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">筛选</p>
+        <h3>BlueBubbles 投递记录（纯 Docker 首版默认停用）</h3>
+      </div>
+    </div>
+    <form method="get" class="filters-grid">
+      <input name="q" value="{{ filters.q }}" placeholder="搜索用户名、号码或摘要">
+      <select name="status">
+        <option value="">全部状态</option>
+        <option value="done" {% if filters.status == 'done' %}selected{% endif %}>成功</option>
+        <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>失败</option>
+        <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>待处理</option>
+      </select>
+      <button type="submit" class="btn btn-secondary">应用筛选</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <tr><th>时间</th><th>用户</th><th>接收方</th><th>状态</th><th>摘要</th><th>错误</th><th>操作</th></tr>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.delivery.created_at.strftime('%Y-%m-%d %H:%M') if row.delivery.created_at else '-' }}</td>
+          <td>{{ row.user.display_name or row.user.username }}</td>
+          <td>{{ row.delivery.recipient }}</td>
+          <td><span class="badge badge-{{ row.delivery.status }}">{{ row.delivery.status }}</span></td>
+          <td>{{ row.delivery.message_preview or '-' }}</td>
+          <td>{{ row.delivery.error_message or '-' }}</td>
+          <td>
+            <form method="post" action="{{ url_for('admin.retry_delivery', delivery_id=row.delivery.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-secondary btn-compact">标记待重发</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </section>
+</section>
+{% endblock %}

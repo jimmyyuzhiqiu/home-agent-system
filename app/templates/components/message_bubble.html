@@ -1,0 +1,34 @@
+{% set is_user = message.role == 'user' %}
+{% set state = 'normal' %}
+{% if not is_user and '权限阻塞' in message.content %}
+  {% set state = 'blocked' %}
+{% elif not is_user and ('任务执行失败' in message.content or '调用失败' in message.content) %}
+  {% set state = 'failed' %}
+{% endif %}
+<article class="message-bubble {% if is_user %}is-user{% else %}is-assistant{% endif %} {% if not is_user %}is-{{ state }}{% endif %}" id="message-{{ message.id }}">
+  <div class="message-head">
+    <div class="message-ident">
+      <span class="badge {% if is_user %}badge-muted{% else %}badge-accent{% endif %}">
+        {{ '我' if is_user else '系统' }}
+      </span>
+      {% if not is_user and state != 'normal' %}
+      <span class="badge badge-{{ 'blocked' if state == 'blocked' else 'failed' }}">{{ '权限阻塞' if state == 'blocked' else '执行失败' }}</span>
+      {% endif %}
+      <span class="message-time">{{ message.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+    </div>
+    {% if not is_user %}
+    <button type="button" class="copy-btn" data-copy-text="{{ message.content|e }}">复制结果</button>
+    {% endif %}
+  </div>
+  <div class="message-body prose">{{ message.content|render_markdown }}</div>
+  {% if message.artifact_count %}
+  <div class="message-ident">
+    <span class="badge badge-muted">关联产物 {{ message.artifact_count }}</span>
+  </div>
+  {% endif %}
+  {% if message.attachment_path %}
+  <a class="attachment-chip" href="{{ url_for('chat.uploaded_file', filename=message.attachment_path) }}" target="_blank">
+    附件：{{ message.attachment_name }}
+  </a>
+  {% endif %}
+</article>

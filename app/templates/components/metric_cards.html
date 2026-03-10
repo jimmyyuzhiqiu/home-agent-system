@@ -1,0 +1,9 @@
+<div class="metric-grid">
+  {% for metric in metrics %}
+  <section class="metric-card">
+    <p class="metric-label">{{ metric.label }}</p>
+    <div class="metric-value">{{ metric.value }}</div>
+    <p class="muted">{{ metric.hint }}</p>
+  </section>
+  {% endfor %}
+</div>

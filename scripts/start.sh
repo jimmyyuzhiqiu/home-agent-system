@@ -17,11 +17,10 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-python3 scripts/sync_openclaw_gateway.py || echo "[warn] 未同步到 OpenClaw 网关配置，继续启动（CLI Bridge 仍可用）"
-[ -f .env.runtime ] || printf "OPENCLAW_BASE_URL=http://host.docker.internal:3333\nOPENCLAW_GATEWAY_TOKEN=\n" > .env.runtime
-python3 scripts/check_gateway.py || echo "[warn] 网关连通性检查失败，继续启动（CLI Bridge 兜底）"
+docker compose up -d --build --remove-orphans
 
-docker compose up -d --build
-docker compose exec -T app python init_admin.py
+echo
+docker compose ps
 
 echo "服务已启动: http://localhost:8088"
+echo "默认部署已切换为 web + runtime + nginx，首次部署请直接在浏览器完成 /setup。"

@@ -1,0 +1,45 @@
+{% set run_payload = latest_run_payload %}
+{% if run_payload %}
+<section class="run-hero">
+  <div class="run-hero-head">
+    <div>
+      <p class="eyebrow">处理中</p>
+      <h4>{{ run_payload.public_status_label }}</h4>
+    </div>
+    <span class="badge badge-{{ run_payload.status }}">{{ run_payload.public_status_label }}</span>
+  </div>
+  <div class="run-progress">
+    <div class="progress-track">
+      <span class="progress-bar" style="width: {{ run_payload.progress_percent or 0 }}%"></span>
+    </div>
+    <div class="progress-meta">
+      <span>{{ run_payload.progress_percent or 0 }}%</span>
+      <span>{{ run_payload.error_message or '系统会持续更新执行状态。' }}</span>
+    </div>
+  </div>
+  <div class="run-stage-strip">
+    {% for item in run_payload.timeline['items'] %}
+    <div class="stage-chip is-{{ item.status }}">
+      <span class="timeline-dot is-{{ item.status }}"></span>
+      <div>
+        <strong>{{ item.title }}</strong>
+        <small>{{ item.status_label }}</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if run_payload.public_events %}
+  <div class="event-card-list">
+    {% for item in run_payload.public_events[-6:] %}
+    <article class="event-card is-{{ item.status }}">
+      <div class="event-card-head">
+        <strong>{{ item.label }}</strong>
+        <span class="badge badge-{{ item.status }}">{{ item.status }}</span>
+      </div>
+      <p>{{ item.text or '处理中…' }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}

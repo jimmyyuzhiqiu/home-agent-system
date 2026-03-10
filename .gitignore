@@ -3,6 +3,9 @@
 selfcheck-evidence.log
 __pycache__/
 *.pyc
+.runtime/
+app/home_agent.db
+app/*.db
 app/uploads/*
 !app/uploads/.gitkeep
 data/*

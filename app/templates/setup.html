@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="onboarding-panel" data-runtime-setup data-provider-status-url="{{ url_for('auth.api_admin_provider_status') }}" data-oauth-start-url="{{ url_for('auth.setup_provider_oauth_start') }}" data-oauth-session-id="{{ active_auth_session.id if active_auth_session else '' }}" data-oauth-session-url-template="{{ url_for('auth.api_admin_provider_oauth', session_id='__SESSION__') }}" data-oauth-cancel-url-template="{{ url_for('auth.api_admin_provider_oauth_cancel', session_id='__SESSION__') }}">
+  <div class="panel security-hero">
+    <p class="eyebrow">纯 Docker 首启</p>
+    <h2>首次部署只需要打开浏览器完成 3 步，不再依赖宿主机脚本。</h2>
+    <p class="muted">管理员创建、Provider 认证、默认模型确认都在这里完成。完成后，家庭成员即可直接登录使用。</p>
+  </div>
+
+  <div class="setup-grid">
+    <article class="guide-card setup-step">
+      <span class="step-index">1</span>
+      <h3>创建管理员</h3>
+      <p class="muted">建立第一个管理员账号，后续所有 Provider 与 Runtime 配置都由管理员统一维护。</p>
+      {% if not setup_summary.has_admin %}
+      <form method="post" action="{{ url_for('auth.setup_admin') }}" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>
+          <span>管理员用户名</span>
+          <input name="username" placeholder="例如 Jimmy" required>
+        </label>
+        <label>
+          <span>显示名称</span>
+          <input name="display_name" placeholder="例如 家庭管理员">
+        </label>
+        <label>
+          <span>管理员密码</span>
+          <input name="password" type="password" placeholder="至少 10 位" required>
+        </label>
+        <label>
+          <span>确认密码</span>
+          <input name="confirm_password" type="password" placeholder="再次输入密码" required>
+        </label>
+        <button type="submit" class="btn btn-primary full-btn">创建管理员并继续</button>
+      </form>
+      {% else %}
+      <div class="feature-item">
+        <strong>管理员已创建</strong>
+        <p>{{ current_user.display_name or current_user.username if current_user.is_authenticated else '请先登录管理员账号继续配置。' }}</p>
+      </div>
+      {% endif %}
+    </article>
+
+    <article class="guide-card setup-step">
+      <span class="step-index">2</span>
+      <h3>配置 Provider</h3>
+      <p class="muted">支持两种方式：直接输入 OpenAI API Key，或在浏览器里完成 OpenAI OAuth 登录。</p>
+      <div class="status-grid">
+        <div class="feature-item">
+          <strong>Runtime</strong>
+          <p id="runtimeStateText">{{ runtime_state.compact_label }}</p>
+        </div>
+        <div class="feature-item">
+          <strong>Provider</strong>
+          <p id="providerStateText">{{ '已就绪' if provider_record.status == 'ready' else '待配置' }}</p>
+        </div>
+        <div class="feature-item">
+          <strong>Browser</strong>
+          <p>{{ '容器内已就绪' if runtime_state.browser_available else '待启用' }}</p>
+        </div>
+      </div>
+      {% if current_user.is_authenticated and current_user.is_admin %}
+      <form method="post" action="{{ url_for('auth.setup_provider_api_key') }}" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <label>
+          <span>OpenAI API Key</span>
+          <input name="api_key" type="password" placeholder="sk-..." required>
+        </label>
+        <label>
+          <span>默认模型</span>
+          <input name="default_model" value="{{ setup_summary.preferred_model or provider_record.default_model or 'openai/gpt-5.3-codex' }}" required>
+        </label>
+        <button type="submit" class="btn btn-primary full-btn">保存 API Key 并探测</button>
+      </form>
+
+      <div class="feature-item">
+        <strong>OAuth 登录</strong>
+        <p class="muted">
+          {% if oauth_available %}
+          使用浏览器完成 OpenAI OAuth，适合正式 HTTPS 域名部署。
+          {% else %}
+          当前访问地址不是 HTTPS 固定域名，已隐藏 OAuth 主路径。本地部署请优先使用 API Key。
+          {% endif %}
+        </p>
+        {% if oauth_available %}
+        <div class="setup-actions">
+          <button type="button" class="btn btn-secondary" id="oauthStartButton">开始 OpenAI OAuth</button>
+          <button type="button" class="btn btn-secondary" id="oauthCancelButton" hidden>取消登录</button>
+        </div>
+        {% endif %}
+        <div class="oauth-session" id="oauthSessionPanel" {% if not active_auth_session %}hidden{% endif %}>
+          <p><strong>认证状态：</strong><span id="oauthStatusText">{{ active_auth_session.status if active_auth_session else '未开始' }}</span></p>
+          <p id="oauthUrlWrap" {% if not active_auth_session or not active_auth_session.auth_url %}hidden{% endif %}>
+            <strong>授权链接：</strong><a id="oauthAuthLink" href="{{ active_auth_session.auth_url if active_auth_session else '#' }}" target="_blank" rel="noopener">{{ active_auth_session.auth_url if active_auth_session else '' }}</a>
+          </p>
+          <p id="oauthCodeWrap" {% if not active_auth_session or not active_auth_session.device_code %}hidden{% endif %}>
+            <strong>设备码：</strong><span id="oauthDeviceCode">{{ active_auth_session.device_code if active_auth_session else '' }}</span>
+          </p>
+          <pre class="oauth-log" id="oauthLog">{{ active_auth_session.output_log if active_auth_session else '' }}</pre>
+        </div>
+      </div>
+      {% else %}
+      <div class="feature-item">
+        <strong>请使用管理员账号继续</strong>
+        <p>管理员登录后，这里会显示 API Key / OAuth 配置入口。</p>
+      </div>
+      {% endif %}
+    </article>
+
+    <article class="guide-card setup-step">
+      <span class="step-index">3</span>
+      <h3>确认默认模型并完成部署</h3>
+      <p class="muted">只有当 Runtime 已连通并且 Provider 已可用后，家庭成员的聊天入口才会自动开放。</p>
+      <div class="feature-item">
+        <strong>当前默认模型</strong>
+        <p id="preferredModelText">{{ setup_summary.preferred_model or provider_record.default_model or 'openai/gpt-5.3-codex' }}</p>
+      </div>
+      {% if current_user.is_authenticated and current_user.is_admin %}
+      <form method="post" action="{{ url_for('auth.setup_complete') }}" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>
+          <span>部署默认模型</span>
+          <input name="preferred_model" value="{{ setup_summary.preferred_model or provider_record.default_model or 'openai/gpt-5.3-codex' }}" required>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" name="runtime_health_enabled" {% if setup_summary.runtime_health_enabled %}checked{% endif %}>
+          <span>启用 Runtime 健康检查</span>
+        </label>
+        <button type="submit" class="btn btn-primary full-btn" id="setupCompleteButton" {% if not runtime_state.chat_ready %}disabled{% endif %}>完成首启并进入系统</button>
+      </form>
+      {% else %}
+      <div class="feature-item">
+        <strong>等待管理员完成配置</strong>
+        <p>完成 Provider 认证后，这里会开放最终确认按钮。</p>
+      </div>
+      {% endif %}
+    </article>
+  </div>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/setup.js') }}"></script>
+{% endblock %}

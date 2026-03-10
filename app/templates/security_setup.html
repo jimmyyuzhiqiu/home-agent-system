@@ -1,29 +1,40 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card">
-  <h2>首次安全加固向导</h2>
-  {% if secret_weak %}
-    <div class="flash warning">检测到 SECRET_KEY 为默认或弱值。请先更新 <span class="code">.env</span> 中 SECRET_KEY 并重启容器，否则系统会限制管理入口。</div>
-    <p>建议值（复制到 .env）：</p>
-    <p><span class="code">SECRET_KEY={{ suggest_secret }}</span></p>
-  {% else %}
-    <div class="flash success">SECRET_KEY 强度检查通过。</div>
-  {% endif %}
-
-  {% if current_user.force_password_change %}
-    <div class="flash warning">当前账号仍为初始化密码或被重置过，必须修改后方可继续使用。</div>
-  {% endif %}
-
-  <h3>修改管理员密码</h3>
-  <form method="post" style="max-width:560px;">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="action" value="change_password">
-    <input type="password" name="old_password" placeholder="当前密码" required>
-    <input type="password" name="new_password" placeholder="新密码（至少 10 位）" required>
-    <input type="password" name="confirm_password" placeholder="确认新密码" required>
-    <button type="submit">更新密码</button>
-  </form>
-
-  <p class="muted" style="margin-top:12px;">完成后若仍提示 SECRET_KEY 弱，请修改 .env 并执行 docker compose up -d --build 重启。</p>
-</div>
+<section class="admin-stack">
+  <div class="panel security-hero">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">安全中心</p>
+        <h2>保持这套系统长期可用，需要先维护安全底座</h2>
+      </div>
+    </div>
+    {% if secret_weak %}
+    <div class="flash flash-warning">检测到 SECRET_KEY 强度不足，建议尽快更新 `.env` 后重启服务。</div>
+    <div class="code-block">SECRET_KEY={{ suggest_secret }}</div>
+    {% else %}
+    <div class="flash flash-success">SECRET_KEY 强度检查通过。</div>
+    {% endif %}
+  </div>
+  <div class="grid-two">
+    <section class="panel">
+      <h3>修改管理员密码</h3>
+      <form method="post" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="change_password">
+        <label><span>当前密码</span><input type="password" name="old_password" required></label>
+        <label><span>新密码</span><input type="password" name="new_password" placeholder="至少 10 位" required></label>
+        <label><span>确认新密码</span><input type="password" name="confirm_password" required></label>
+        <button type="submit" class="btn btn-primary">更新密码</button>
+      </form>
+    </section>
+    <section class="panel">
+      <h3>维护建议</h3>
+      <ul class="list-clean">
+        <li>定期更新管理员密码和 SECRET_KEY。</li>
+        <li>保留登录限流，避免对公网直接暴露应用容器。</li>
+        <li>若部署在 Docker 模式，修改 `.env` 后执行 `docker compose up -d --build`。</li>
+      </ul>
+    </section>
+  </div>
+</section>
 {% endblock %}

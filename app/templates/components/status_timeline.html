@@ -1,0 +1,42 @@
+<section class="panel timeline-panel" id="timelinePanel" data-run-id="{{ active_run.id if active_run else '' }}">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">执行状态</p>
+      <h3>执行时间线</h3>
+    </div>
+    <span class="badge badge-{{ timeline.overall }}">{{ timeline.overall_label }}</span>
+  </div>
+  <div class="progress-block">
+    <div class="progress-track">
+      <span class="progress-bar" style="width: {{ timeline.progress_percent }}%"></span>
+    </div>
+    <div class="progress-meta">
+      <span>{{ timeline.progress_percent }}%</span>
+      <span>{{ timeline.error_message or '最近一次任务状态' }}</span>
+    </div>
+  </div>
+  <div class="timeline-list" id="timelineList">
+    {% for item in timeline['items'] %}
+    <div class="timeline-item" data-stage="{{ item.key }}">
+      <span class="timeline-dot is-{{ item.status }}"></span>
+      <div class="timeline-content">
+        <div class="timeline-head">
+          <strong>{{ item.title }}</strong>
+          <span class="badge badge-{{ item.status }}">{{ item.status_label }}</span>
+        </div>
+        <p class="muted">{{ item.summary or '等待执行内容填充' }}</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if timeline.plan_steps %}
+  <div class="plan-list">
+    <p class="mini-title">最近计划</p>
+    <ol>
+      {% for step in timeline.plan_steps %}
+      <li>{{ step }}</li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+</section>

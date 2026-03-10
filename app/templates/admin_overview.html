@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="admin-stack">
+  {% include 'components/metric_cards.html' %}
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Runtime</p>
+        <h3>容器内执行环境</h3>
+      </div>
+      <span class="badge badge-{{ 'done' if bridge_state.chat_ready else 'failed' }}">{{ bridge_state.compact_label }}</span>
+    </div>
+    <div class="status-grid">
+      <div class="mini-card"><span>runtime</span><strong>{{ bridge_state.bridge_url or '-' }}</strong></div>
+      <div class="mini-card"><span>profile</span><strong>{{ bridge_state.runtime_profile or '-' }}</strong></div>
+      <div class="mini-card"><span>openclaw</span><strong>{{ '可用' if bridge_state.openclaw_available else '不可用' }}</strong></div>
+      <div class="mini-card"><span>gateway</span><strong>{{ '已启动' if bridge_state.gateway_running else '未启动' }}</strong></div>
+    </div>
+    <p class="muted">{{ bridge_state.reason or bridge_state.detail }}</p>
+  </section>
+
+  <section class="risk-grid">
+    {% for item in risk_items %}
+    <article class="panel risk-card">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">风险提示</p>
+          <h3>{{ item.title }}</h3>
+        </div>
+        <span class="badge badge-{{ item.status }}">{{ item.status }}</span>
+      </div>
+      <p class="muted">{{ item.summary }}</p>
+      <a href="{{ item.url }}" class="btn btn-secondary btn-compact">查看详情</a>
+    </article>
+    {% endfor %}
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">最近运行</p>
+        <h3>最近运行</h3>
+      </div>
+    </div>
+    <div class="activity-list">
+      {% for item in latest_items %}
+      <article class="activity-item">
+        <div>
+          <strong>{{ item.username }}</strong>
+          <p class="muted">{{ item.summary }}</p>
+        </div>
+        <div class="activity-meta">
+          <span class="badge badge-{{ item.status }}">{{ item.status }}</span>
+          <span class="muted">{{ item.created_at.strftime('%m-%d %H:%M') if item.created_at else '-' }}</span>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">快捷入口</p>
+        <h3>常用后台操作</h3>
+      </div>
+    </div>
+    <div class="quick-link-grid">
+      {% for item in quick_links %}
+      <a href="{{ item.url }}" class="quick-link-card">
+        <strong>{{ item.label }}</strong>
+        <span class="muted">进入对应页面继续排查</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}

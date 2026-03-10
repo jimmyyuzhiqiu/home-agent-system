@@ -1,51 +1,39 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card page-enter" style="max-width:920px;margin:0 auto;">
-  <h2>欢迎使用 Home Agent System</h2>
-  <p class="muted">这是你的首次引导，2 分钟即可完成。你可以现在完成，也可以稍后再看。</p>
-
-  <div class="guide-grid">
-    <section class="guide-block">
-      <h3>1) 我能做什么</h3>
-      <ul>
-        <li><b>双 Agent 闭环：</b>planner 负责拆解，worker 负责执行，最后由 planner 复核交付。</li>
-        <li><b>文件/图片处理：</b>支持上传文档与图片，自动结合内容分析与输出结果。</li>
-        <li><b>长期记忆：</b>可自动提取偏好与目标，也可用 <span class="code">/remember</span> 与 <span class="code">/forget</span> 手动管理。</li>
-      </ul>
+<section class="panel onboarding-panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">开始使用</p>
+      <h2>开始使用前，先理解这套系统的工作方式</h2>
+    </div>
+  </div>
+  <div class="onboarding-grid">
+    <section class="guide-card">
+      <span class="step-index">01</span>
+      <h3>任务会自动闭环</h3>
+      <p>系统会先拆解任务，再执行和校验。对你来说，重点是把目标和限制讲清楚。</p>
     </section>
-
-    <section class="guide-block">
-      <h3>2) 如何提问更有效</h3>
-      <ul>
-        <li>“请把这个需求拆成可执行步骤，并给出今天就能开始的版本。”</li>
-        <li>“我上传了一份文件，请总结重点并列出待办清单。”</li>
-        <li>“结合我们的历史记忆，给我一个这周可落地的计划。”</li>
-      </ul>
+    <section class="guide-card">
+      <span class="step-index">02</span>
+      <h3>上下文会持续记忆</h3>
+      <p>系统会提取你的偏好、目标和事实，也允许你手动维护“我的记忆”。这样它会越用越顺手。</p>
     </section>
-
-    <section class="guide-block">
-      <h3>3) 隐私与权限边界</h3>
-      <ul>
-        <li>你的会话与记忆默认按用户隔离。</li>
-        <li>管理员可在后台查看聊天审计与记忆审计（用于运维与合规）。</li>
-        <li>遇到权限不足场景，系统会明确提示“权限阻塞”。</li>
-      </ul>
+    <section class="guide-card">
+      <span class="step-index">03</span>
+      <h3>隔离与审计并存</h3>
+      <p>会话、附件、记忆按用户隔离；但管理员可以在后台查看审计内容，用于排障、维护和结果回发。</p>
     </section>
   </div>
-
-  <div class="guide-actions">
-    <form method="post" action="{{ url_for('complete_onboarding') }}">
+  <p class="muted">如果你上传文件，系统会在这台电脑的执行环境中处理后再把结果返回给你；如已启用手机号回发，最终摘要也会同步到绑定号码。</p>
+  <div class="action-row">
+    <form method="post" action="{{ url_for('auth.complete_onboarding') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit">完成引导并进入聊天</button>
+      <button type="submit" class="btn btn-primary">开始使用</button>
     </form>
-    <form method="post" action="{{ url_for('snooze_onboarding') }}">
+    <form method="post" action="{{ url_for('auth.snooze_onboarding') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="secondary">稍后再看</button>
-    </form>
-    <form method="post" action="{{ url_for('complete_onboarding') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="warning">跳过并直接进入聊天</button>
+      <button type="submit" class="btn btn-secondary">本次跳过</button>
     </form>
   </div>
-</div>
+</section>
 {% endblock %}

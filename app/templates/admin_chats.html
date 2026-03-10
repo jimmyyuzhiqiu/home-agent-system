@@ -1,26 +1,95 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card">
-  <h2>聊天审计（最近 500 条）</h2>
-  <table>
-    <tr><th>时间</th><th>用户</th><th>会话</th><th>角色</th><th>双Agent</th><th>内容</th><th>执行摘要</th><th>附件</th></tr>
-    {% for m, u, c in records %}
-    {% set run = audit_by_conv.get(c.id) %}
-    <tr>
-      <td>{{ m.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-      <td>{{ u.username }}</td>
-      <td><span class="code">{{ c.session_key }}</span></td>
-      <td>{{ m.role }}</td>
-      <td>{% if run and run.dual_agent_triggered %}<span class="badge success">触发</span>{% else %}<span class="badge">否</span>{% endif %}</td>
-      <td style="max-width:300px;word-break:break-all;">{{ m.content }}</td>
-      <td style="max-width:280px;word-break:break-all;">{{ run.final_summary if run else '-' }}</td>
-      <td>
-        {% if m.attachment_path %}
-          <a href="{{ url_for('uploaded_file', filename=m.attachment_path) }}" target="_blank">{{ m.attachment_name }}</a>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </table>
-</div>
+<section class="admin-stack">
+  <section class="panel">
+    <div class="panel-head"><h3>筛选聊天记录</h3></div>
+    <form method="get" class="filters-grid">
+      <input name="q" value="{{ filters.q }}" placeholder="搜索用户名或内容">
+      <select name="role">
+        <option value="">全部角色</option>
+        <option value="user" {% if filters.role == 'user' %}selected{% endif %}>用户</option>
+        <option value="admin" {% if filters.role == 'admin' %}selected{% endif %}>管理员</option>
+      </select>
+      <select name="status">
+        <option value="">全部状态</option>
+        {% for option in ['done', 'blocked', 'failed', 'running', 'queued'] %}
+        <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <select name="stage">
+        <option value="">全部阶段</option>
+        {% for option in ['planner', 'worker', 'verify', 'complete', 'queued'] %}
+        <option value="{{ option }}" {% if filters.stage == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <select name="attachment">
+        <option value="">全部附件状态</option>
+        <option value="yes" {% if filters.attachment == 'yes' %}selected{% endif %}>有附件</option>
+        <option value="no" {% if filters.attachment == 'no' %}selected{% endif %}>无附件</option>
+      </select>
+      <select name="dual">
+        <option value="">全部执行模式</option>
+        <option value="yes" {% if filters.dual == 'yes' %}selected{% endif %}>双 Agent</option>
+        <option value="no" {% if filters.dual == 'no' %}selected{% endif %}>非双 Agent</option>
+      </select>
+      <input type="date" name="start_date" value="{{ filters.start_date }}">
+      <input type="date" name="end_date" value="{{ filters.end_date }}">
+      <button type="submit" class="btn btn-secondary">应用筛选</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <tr><th>时间</th><th>用户</th><th>会话</th><th>角色</th><th>双Agent</th><th>消息</th><th>执行详情</th><th>附件</th></tr>
+        {% for row in records %}
+        <tr>
+          <td>{{ row.message.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          <td>{{ row.user.username }}</td>
+          <td>{{ row.conversation.title }}</td>
+          <td>{{ row.message.role }}</td>
+          <td><span class="badge badge-{{ 'success' if row.run and row.run.dual_agent_triggered else 'muted' }}">{{ '触发' if row.run and row.run.dual_agent_triggered else '否' }}</span></td>
+          <td class="cell-break">{{ row.message.content }}</td>
+          <td class="cell-break">
+            {% if row.run %}
+            <span class="badge badge-{{ row.run.status or 'muted' }}">{{ row.run.status or 'idle' }}</span>
+            <span class="badge badge-muted">阶段 {{ row.run.current_stage or '-' }}</span>
+            <p>{{ row.run.final_summary or row.run.public_error_message or row.run.error_message or '-' }}</p>
+            <details class="audit-details">
+              <summary>展开执行细节</summary>
+              <div class="audit-detail-body">
+                <p><strong>planner</strong></p>
+                <p>{{ row.run.planner_plan or '暂无拆解结果' }}</p>
+                <p><strong>worker</strong></p>
+                <p>{{ row.run.worker_output or '暂无执行内容' }}</p>
+                <p><strong>最终交付</strong></p>
+                <p>{{ row.run.final_summary or '-' }}</p>
+                <p><strong>公开错误</strong></p>
+                <p>{{ row.run.public_error_message or '-' }}</p>
+                <p><strong>技术错误</strong></p>
+                <p>{{ row.run.technical_error_message or '-' }}</p>
+                {% if row.run_payload and row.run_payload.admin_events %}
+                <p><strong>工具事件</strong></p>
+                {% for item in row.run_payload.admin_events[-8:] %}
+                <div class="muted">{{ item.label }} / {{ item.status }} / {{ item.text or '-' }}</div>
+                {% endfor %}
+                {% endif %}
+                <p class="muted">model {{ row.conversation.model or '-' }} / provider {{ row.conversation.last_provider or '-' }} / duration {{ row.run.duration_ms or '-' }} ms / delivery {{ row.run.delivery_status or '-' }}</p>
+              </div>
+            </details>
+            {% else %}
+            -
+            {% endif %}
+          </td>
+          <td>
+            {% if row.message.attachment_path %}
+            <a href="{{ url_for('chat.uploaded_file', filename=row.message.attachment_path) }}" target="_blank">{{ row.message.attachment_name }}</a>
+            {% else %}-{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </section>
+</section>
 {% endblock %}

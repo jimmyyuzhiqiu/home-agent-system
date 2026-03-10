@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="admin-stack" data-runtime-setup data-provider-status-url="{{ url_for('auth.api_admin_provider_status') }}" data-oauth-start-url="{{ url_for('auth.setup_provider_oauth_start') }}" data-oauth-session-id="{{ active_auth_session.id if active_auth_session else '' }}" data-oauth-session-url-template="{{ url_for('auth.api_admin_provider_oauth', session_id='__SESSION__') }}" data-oauth-cancel-url-template="{{ url_for('auth.api_admin_provider_oauth_cancel', session_id='__SESSION__') }}">
+  <div class="grid-two">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">Runtime</p>
+          <h3>容器内 OpenClaw Runtime</h3>
+        </div>
+      </div>
+      <div class="metric-grid">
+        <article class="metric-card">
+          <span>Runtime 状态</span>
+          <strong id="runtimeStateText">{{ runtime_state.compact_label }}</strong>
+          <small>{{ runtime_state.reason }}</small>
+        </article>
+        <article class="metric-card">
+          <span>Gateway</span>
+          <strong>{{ '已启动' if runtime_state.gateway_running else '未启动' }}</strong>
+          <small>{{ runtime_state.runtime_profile or 'runtime' }}</small>
+        </article>
+        <article class="metric-card">
+          <span>Provider</span>
+          <strong id="providerStateText">{{ '已就绪' if provider_record.status == 'ready' else '待配置' }}</strong>
+          <small id="preferredModelText">{{ provider_record.default_model or bootstrap_state.preferred_model }}</small>
+        </article>
+        <article class="metric-card">
+          <span>Browser</span>
+          <strong>{{ '可用' if runtime_state.browser_available else '待启用' }}</strong>
+          <small>容器内搜索 / 抓取 / 截图运行时</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">配置</p>
+          <h3>API Key / OAuth</h3>
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('auth.setup_provider_api_key') }}" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <label>
+          <span>OpenAI API Key</span>
+          <input name="api_key" type="password" placeholder="sk-..." required>
+        </label>
+        <label>
+          <span>默认模型</span>
+          <input name="default_model" value="{{ provider_record.default_model or bootstrap_state.preferred_model or 'openai/gpt-5.3-codex' }}" required>
+        </label>
+        <button type="submit" class="btn btn-primary">保存 API Key 并探测</button>
+      </form>
+      <div class="feature-item">
+        <strong>OAuth 登录</strong>
+        <p class="muted">
+          {% if setup_summary.oauth_available %}
+          适合正式 HTTPS 域名部署，登录过程会直接显示在当前浏览器中。
+          {% else %}
+          当前地址不是 HTTPS 固定域名，OAuth 入口已弱化。本地部署请优先使用 API Key。
+          {% endif %}
+        </p>
+        {% if setup_summary.oauth_available %}
+        <div class="setup-actions">
+          <button type="button" class="btn btn-secondary" id="oauthStartButton">开始 OpenAI OAuth</button>
+          <button type="button" class="btn btn-secondary" id="oauthCancelButton" hidden>取消登录</button>
+        </div>
+        {% endif %}
+        <div class="oauth-session" id="oauthSessionPanel" {% if not active_auth_session %}hidden{% endif %}>
+          <p><strong>认证状态：</strong><span id="oauthStatusText">{{ active_auth_session.status if active_auth_session else '未开始' }}</span></p>
+          <p id="oauthUrlWrap" {% if not active_auth_session or not active_auth_session.auth_url %}hidden{% endif %}><strong>授权链接：</strong><a id="oauthAuthLink" href="{{ active_auth_session.auth_url if active_auth_session else '#' }}" target="_blank" rel="noopener">{{ active_auth_session.auth_url if active_auth_session else '' }}</a></p>
+          <p id="oauthCodeWrap" {% if not active_auth_session or not active_auth_session.device_code %}hidden{% endif %}><strong>设备码：</strong><span id="oauthDeviceCode">{{ active_auth_session.device_code if active_auth_session else '' }}</span></p>
+          <pre class="oauth-log" id="oauthLog">{{ active_auth_session.output_log if active_auth_session else '' }}</pre>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">默认模型</p>
+        <h3>统一的家庭执行模型</h3>
+      </div>
+    </div>
+    <form method="post" action="{{ url_for('admin.runtime_provider_default_model') }}" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>
+        <span>默认模型</span>
+        <input name="preferred_model" value="{{ provider_record.default_model or bootstrap_state.preferred_model or 'openai/gpt-5.3-codex' }}" required>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" name="runtime_health_enabled" {% if bootstrap_state.runtime_health_enabled %}checked{% endif %}>
+        <span>启用 Runtime 健康检查</span>
+      </label>
+      <button type="submit" class="btn btn-primary">更新默认模型</button>
+    </form>
+  </section>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/setup.js') }}"></script>
+{% endblock %}

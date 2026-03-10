@@ -1,0 +1,43 @@
+{% set endpoint = request.endpoint or '' %}
+<aside class="sidebar" id="sidebar">
+  <div class="brand-panel">
+    <p class="eyebrow">智能家庭</p>
+    <h2>家庭智能中枢</h2>
+    <p class="muted">把会话、记忆、执行状态和审计统一到一个工作台。</p>
+  </div>
+
+  <div class="sidebar-section">
+    <p class="sidebar-label">用户空间</p>
+    <a class="nav-link {% if endpoint == 'chat.chat' %}is-active{% endif %}" href="{{ url_for('chat.chat') }}">聊天工作台</a>
+    <a class="nav-link {% if endpoint == 'chat.memories' %}is-active{% endif %}" href="{{ url_for('chat.memories') }}">我的记忆</a>
+    <a class="nav-link {% if endpoint == 'auth.onboarding' %}is-active{% endif %}" href="{{ url_for('auth.onboarding') }}">使用引导</a>
+  </div>
+
+  {% if current_user.is_admin %}
+  <div class="sidebar-section">
+    <p class="sidebar-label">系统后台</p>
+    <a class="nav-link {% if endpoint == 'admin.overview' %}is-active{% endif %}" href="{{ url_for('admin.overview') }}">后台总览</a>
+    <a class="nav-link {% if endpoint == 'admin.admin_users' %}is-active{% endif %}" href="{{ url_for('admin.admin_users') }}">用户管理</a>
+    <a class="nav-link {% if endpoint == 'admin.runtime_settings' %}is-active{% endif %}" href="{{ url_for('admin.runtime_settings') }}">Runtime 与 Provider</a>
+    <a class="nav-link {% if endpoint == 'auth.security_setup' %}is-active{% endif %}" href="{{ url_for('auth.security_setup') }}">安全中心</a>
+  </div>
+  <div class="sidebar-section">
+    <p class="sidebar-label">审计</p>
+    <a class="nav-link {% if endpoint == 'admin.admin_chats' %}is-active{% endif %}" href="{{ url_for('admin.admin_chats') }}">聊天审计</a>
+    <a class="nav-link {% if endpoint == 'admin.admin_memories' %}is-active{% endif %}" href="{{ url_for('admin.admin_memories') }}">记忆审计</a>
+    <a class="nav-link {% if endpoint == 'admin.admin_agents' %}is-active{% endif %}" href="{{ url_for('admin.admin_agents') }}">Agent 审计</a>
+    <a class="nav-link {% if endpoint == 'admin.admin_session_audit' %}is-active{% endif %}" href="{{ url_for('admin.admin_session_audit') }}">会话审计</a>
+    <a class="nav-link {% if endpoint == 'admin.admin_deliveries' %}is-active{% endif %}" href="{{ url_for('admin.admin_deliveries') }}">投递审计</a>
+  </div>
+  {% endif %}
+
+  <div class="sidebar-footer">
+    <div class="identity-card">
+      <span class="status-dot {% if current_user.is_admin %}is-admin{% endif %}"></span>
+      <div>
+        <div class="identity-name">{{ current_user.display_name or current_user.username }}</div>
+        <div class="muted">{{ '管理员' if current_user.role_normalized == 'admin' else '用户' }}</div>
+      </div>
+    </div>
+  </div>
+</aside>
