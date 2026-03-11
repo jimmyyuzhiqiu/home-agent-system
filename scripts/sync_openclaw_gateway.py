@@ -20,6 +20,7 @@ def _load_openclaw_config(path: Path):
 
 
 def main():
+    print("[warn] 该脚本只用于旧宿主机网关兼容模式；当前默认主线是容器内 runtime。")
     port, token, bind = _load_openclaw_config(OPENCLAW_JSON)
 
     # Docker 容器内默认访问宿主机网关

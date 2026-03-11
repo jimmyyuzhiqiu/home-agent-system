@@ -12,6 +12,11 @@
 
 不再以“复用宿主机 OpenClaw 登录态”作为默认方案。
 
+补充文档：
+
+- Windows 部署：[docs/WINDOWS_DEPLOY.md](/Users/jimmy/Desktop/home-agent-system/docs/WINDOWS_DEPLOY.md)
+- Cloudflare Tunnel：[docs/CLOUDFLARE_TUNNEL.md](/Users/jimmy/Desktop/home-agent-system/docs/CLOUDFLARE_TUNNEL.md)
+
 ## 当前架构
 
 默认使用 3 个服务：

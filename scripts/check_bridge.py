@@ -27,6 +27,7 @@ def fetch(url: str):
 
 
 def main():
+    print("[info] 该脚本仅用于旧宿主机桥兼容检查；当前默认主线是容器内 runtime。")
     load_env_file(PROJECT_ROOT / ".env")
     load_env_file(PROJECT_ROOT / ".env.runtime")
     port = os.getenv("HOME_AGENT_BRIDGE_PORT", "18888").strip() or "18888"
