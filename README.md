@@ -1,208 +1,220 @@
-# 家庭多用户 AI Agent 系统（可直接交付版）
+# Home Agent System
 
-> 目标：无需外部 API key，直接复用本机 OpenClaw 登录态；默认走 **OpenClaw CLI Bridge**，网关 HTTP 为可选优先路径。
+面向家庭多用户场景的 AI Agent 工作台。
 
-## 架构与技术选型
+当前主线已经切换为：
 
-- 架构说明：见 `ARCHITECTURE.md`
-- MVP 形态：Flask 单体（前后端一体）+ SQLite + 可选 Nginx
-- Provider 路由：Gateway HTTP 优先，CLI Bridge 兜底
+- 纯 Docker 部署
+- 浏览器内完成首启
+- 容器内 Runtime 执行 OpenClaw / 浏览器 / 文件处理
+- 支持在浏览器里配置 OpenAI API Key
+- 支持在 HTTPS 固定域名下发起 OpenAI OAuth
 
-## 一、开箱即用（推荐一键启动）
+不再以“复用宿主机 OpenClaw 登录态”作为默认方案。
 
-```bash
-cd /Users/jimmy/Desktop/home-agent-system
-chmod +x scripts/*.sh
-./scripts/up.sh
-```
+## 当前架构
 
-说明：
-- `up.sh` 会先做前置检查（docker / docker compose / python3 / Docker daemon）
-- 若不存在 `.env`，自动走首次初始化（等价 `init.sh`）
-- 已有 `.env` 时走日常启动（等价 `start.sh`）
+默认使用 3 个服务：
 
-完成后访问：`http://localhost:8088`
+- `web`: Flask + Jinja 的 Home Agent 应用
+- `runtime`: 容器内 OpenClaw Runtime Bridge
+- `nginx`: 对外入口，默认暴露 `8088`
 
-### 默认管理员账号
-- 用户名：`Jimmy`
-- 密码：`Jimmy11a@123`
+默认入口：
 
-> 首次登录默认进入新手引导页（onboarding），之后可按需在“安全中心”手动改密。
+- 本地访问: `http://localhost:8088`
+- 首启向导: `http://localhost:8088/setup`
 
----
-
-## 二、可复现启动与验证（Docker Compose）
-
-### 1) 启动
+## 一键启动
 
 ```bash
-cd /Users/jimmy/Desktop/home-agent-system
-./scripts/up.sh
+docker compose up -d --build
 ```
 
-### 2) 验证容器状态
+启动后访问：
+
+- `http://localhost:8088/setup`
+
+然后在浏览器里完成 3 步：
+
+1. 创建管理员账号
+2. 配置 Provider
+3. 选择默认模型并完成首启
+
+## Provider 配置
+
+### 1. API Key
+
+这是本地和远端部署都稳定可用的主路径。
+
+在 `/setup` 或后台 `Runtime 与 Provider` 页面中：
+
+- 输入 OpenAI API Key
+- Runtime 会在容器内同步配置
+- 同步后立即做 probe 检查
+- 就绪后才能完成首启并开始聊天
+
+### 2. OAuth
+
+浏览器内 OAuth 已经接好，但有前提：
+
+- 访问地址必须是 HTTPS
+- 域名不能是 `localhost` 或 `127.0.0.1`
+
+因此：
+
+- 本地调试：优先用 API Key
+- 正式部署 + 域名：可以在浏览器里发起 OpenAI OAuth
+
+## Cloudflare Tunnel
+
+可以直接用。
+
+推荐做法：
+
+1. 先拉起 Docker
+
+```bash
+docker compose up -d --build
+```
+
+2. 把 Cloudflare Tunnel 指到：
+
+```text
+http://localhost:8088
+```
+
+3. 用你的域名访问：
+
+```text
+https://你的域名/setup
+```
+
+4. 在浏览器里完成管理员创建和 Provider 配置
+
+建议在 `.env` 里显式设置公网地址：
+
+```env
+HOME_AGENT_PUBLIC_BASE_URL=https://你的域名
+```
+
+然后重启：
+
+```bash
+docker compose up -d --build
+```
+
+虽然系统现在支持根据反向代理头自动识别外部域名，但生产环境仍然建议显式配置。
+
+## Windows 部署
+
+Windows 上推荐直接使用 Docker Desktop。
+
+```bash
+git clone https://github.com/jimmyyuzhiqiu/home-agent-system.git
+cd home-agent-system
+docker compose up -d --build
+```
+
+然后访问：
+
+- `http://localhost:8088/setup`
+
+如果你配了 Cloudflare Tunnel，就直接访问你的 HTTPS 域名。
+
+## 当前能力
+
+- 多用户账号
+- 用户独立会话
+- 用户独立记忆
+- 用户独立 planner / worker 绑定
+- 运行事件与产物记录
+- 用户前台简版状态
+- 管理员后台审计
+- 容器内文件处理
+- 容器内搜索 / 抓取 / 浏览器运行时
+
+## 当前限制
+
+- 纯 Docker v1 默认不启用 BlueBubbles 实发
+- 本地 `localhost` 访问时不显示 OAuth 主路径
+- 如果 Provider 未就绪，聊天发送会被禁用
+
+## 常用命令
+
+查看服务状态：
 
 ```bash
 docker compose ps
 ```
 
-关键输出（示例）：
-- `home-agent-app ... Up (healthy)`
-- `home-agent-nginx ... Up`
-
-### 3) 验证健康检查
+查看日志：
 
 ```bash
-curl -sS http://localhost:8088/healthz
+docker compose logs -f web
+docker compose logs -f runtime
+docker compose logs -f nginx
 ```
 
-关键输出（示例）：
-- `ok`
-
----
-
-## 三、管理员新增用户
-
-1. 管理员登录后进入 **用户管理**。
-2. 填写用户名、初始密码、角色（user/admin）。
-3. 可选填写“用户专属 OpenClaw Token”（会覆盖全局 token）。
-4. 点击创建。
-
-权限规则：
-- **admin**：可访问 用户管理 / 聊天审计 / 记忆审计 / Agent审计 / 会话审计 / 安全中心。
-- **user**：只能看到自己的聊天、附件、以及“自己的 Agent 信息”。（兼容旧数据中的 `member`，会自动迁移为 `user`）
-
----
-
-## 四、Provider 路由（默认 CLI Bridge，网关可选）
-
-后端调用顺序：
-1. **优先 Gateway HTTP**（`/api/chat` -> `/v1/chat/completions` -> `/v1/responses`）
-2. **自动回退 OpenClaw CLI Bridge（默认可用通道）**
-   - 使用每个用户会话的 `session_key`
-   - 执行：`openclaw agent --session-id <session_key> --message <text> --json`
-   - 解析 JSON 中 `result.payloads[].text` 作为 assistant 回复
-
-因此即便网关某接口（例如 `/v1/responses`）返回 405，系统也能自动切到 CLI 通道继续可用。
-
-`init/start` 会自动执行：
-1. 读取宿主机 `~/.openclaw/openclaw.json`
-2. 提取 `gateway.port` 与 `gateway.auth.token`
-3. 生成项目运行时配置 `.env.runtime`（不入库）
-4. 启动前执行连通性检测（仅用于网关优先路径）
-
-聊天页会显示当前网关探测信息；即便显示未连接，CLI Bridge 仍可作为默认兜底通道。
-
----
-
-## 四点一、双Agent默认能力（planner + worker）
-
-系统为**每个用户默认创建双Agent绑定**（`user_agent_binding`）：
-- `planner_agent_id` / `planner_session_key`
-- `worker_agent_id` / `worker_session_key`
-
-执行流程固定为一次指令闭环：
-1. planner 拆解计划
-2. worker 执行计划
-3. planner 验证并汇总最终成品
-
-对外仍保持单聊天入口，用户无感知内部往返。
-
-可视化入口：
-- 用户聊天页：显示“本次由 planner/worker 协作完成”与最后执行摘要
-- 管理员 `聊天审计` 页：可见是否触发双Agent流程及摘要
-- 管理员 `Agent审计` 页：可见所有用户 planner/worker 双绑定
-
----
-
-## 五、安全加固（已内置）
-
-- 登录限流（防爆破基础版）：
-  - 同用户名+IP 连续失败达到阈值后临时锁定。
-- SECRET_KEY 弱值检测：
-  - 在顶部与安全中心提示风险，但不阻断访问。
-- 密码维护：
-  - 管理员可在安全中心手动更新账号密码。
-- 会话过期机制：
-  - 默认 120 分钟（`SESSION_EXPIRE_MINUTES` 可配置）。
-- CSRF 基础防护：
-  - 全站表单启用 CSRF Token（Flask-WTF）。
-- 上传限制：
-  - 默认 20MB（`MAX_UPLOAD_MB`），并限制扩展名白名单。
-
----
-
-## 六、常见故障自检
-
-### 1) 网页打不开
-```bash
-docker compose ps
-```
-确认 `home-agent-app`、`home-agent-nginx` 均为 `Up`。
-
-### 2) 登录失败/被限流
-- 检查用户名密码是否正确。
-- 若提示限流，等待锁定时间结束再试。
-- 重置管理员密码：
-```bash
-docker compose exec -T app python init_admin.py
-```
-
-### 3) OpenClaw 回复失败
-- 在聊天页查看“网关状态”和“健康检查细节”。
-- 检查 `.env`：
-```env
-OPENCLAW_BASE_URL=http://host.docker.internal:3333
-OPENCLAW_GATEWAY_TOKEN=你的token
-```
-- 宿主机确认网关是否在 3333 端口监听。
-
-### 4) 上传失败
-- 检查文件类型是否在白名单。
-- 检查文件大小是否超过 `MAX_UPLOAD_MB`。
-- Nginx 侧限制为 25MB（`nginx/default.conf`）。
-
----
-
-## 七、启动方式
-
-### A. 推荐（确保 CLI Bridge 可用）：宿主机直跑 app
+检查 Runtime 状态：
 
 ```bash
-cd /Users/jimmy/Desktop/home-agent-system/app
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cd ..
-export $(grep -v '^#' .env | xargs)
-python3 app/init_admin.py
-python3 app/app.py
+python3 scripts/check_gateway.py
 ```
 
-访问：`http://localhost:8000`
+## 数据卷
 
-> 该模式下 app 与 `openclaw` CLI 同在宿主机，CLI Bridge 可直接调用。
+默认会保留以下卷：
 
-### B. Docker 模式（网关优先路径）
+- `home_agent_app_data`
+- `home_agent_app_uploads`
+- `home_agent_openclaw_state`
+- `home_agent_runtime_workspaces`
 
-- 对外端口：`8088 -> nginx:80 -> app:8000`
-- `app` 启用健康检查 `/healthz`
-- `nginx` 依赖 app 健康后再启动，减少冷启动 502
+因此重启 Docker 后：
 
----
+- 管理员账号
+- Provider 状态
+- OpenClaw Runtime 状态
+- 会话
+- 记忆
+- 上传文件
 
-## 八、关键环境变量
+都会保留。
 
-`.env` 示例：
+## 旧架构说明
 
-```env
-SECRET_KEY=请使用高强度随机值
-DATABASE_URL=sqlite:////data/app.db
-OPENCLAW_BASE_URL=http://host.docker.internal:3333
-OPENCLAW_GATEWAY_TOKEN=
-ADMIN_USERNAME=Jimmy
-ADMIN_PASSWORD=Jimmy11a@123
-SESSION_EXPIRE_MINUTES=120
-MAX_UPLOAD_MB=20
-USER_DATA_ROOT=./data/users
-```
+仓库里仍保留了一些旧文件，例如宿主机 `host_bridge` 相关代码，用于迁移兼容。
+
+但当前默认主线不是：
+
+- 宿主机 `start.sh` 共享 OpenClaw
+- 复用本机 `~/.openclaw` 登录态
+- CLI Bridge 作为默认运行路径
+
+当前默认主线是：
+
+- 纯 Docker
+- 容器内 Runtime
+- 浏览器内首启
+- 浏览器内 Provider 配置
+
+## 安全建议
+
+- 生产环境务必修改 `SECRET_KEY`
+- 管理员密码使用强密码
+- 公网部署建议配合 Cloudflare Access 或至少限制 `/setup` 暴露窗口
+- 首启完成后，普通用户不能再替代管理员完成初始化
+
+## 结论
+
+如果你现在的目标是：
+
+- 只拉起 Docker
+- 打开浏览器
+- 登录 / 配置 OpenAI
+- 让家人直接通过网页使用
+
+那么当前代码主线就是按这个方向做的。
+
+如果你看到旧文案说“复用本机 OpenClaw 登录态”或“默认 CLI Bridge”，那是旧 README，没有跟上代码。
